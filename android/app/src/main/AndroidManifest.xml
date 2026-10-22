@@ -1,6 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
     <application
-        android:label="casa_en_juego"
+        android:label="Casa en Juego"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
