@@ -2,14 +2,47 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/presentation/login_page.dart';
+import '../../features/auth/presentation/session_page.dart';
+import '../../features/auth/providers/auth_providers.dart';
+
 final appRouterProvider = Provider<GoRouter>((ref) {
+  final refresh = _RouterRefresh();
+  ref.listen(currentUserProvider, (previous, next) => refresh.refresh());
   final router = GoRouter(
-    initialLocation: '/',
+    initialLocation: '/tasks',
+    refreshListenable: refresh,
+    redirect: (context, state) {
+      final user = ref.read(currentUserProvider);
+      final path = state.uri.path;
+      // No se muestran rutas protegidas mientras se restaura o valida el perfil.
+      if (user.isLoading || user.hasError) {
+        return path == '/session' ? null : '/session';
+      }
+      if (user.asData?.value == null) {
+        return path == '/login' ? null : '/login';
+      }
+      if (path == '/login' || path == '/session' || path == '/') {
+        return '/tasks';
+      }
+      return null;
+    },
     routes: [
+      GoRoute(path: '/', redirect: (context, state) => '/tasks'),
       GoRoute(
-        path: '/',
-        name: 'startup',
-        builder: (context, state) => const _StartupPage(),
+        path: '/login',
+        name: 'login',
+        builder: (context, state) => const LoginPage(),
+      ),
+      GoRoute(
+        path: '/session',
+        name: 'session',
+        builder: (context, state) => const SessionPage(),
+      ),
+      GoRoute(
+        path: '/tasks',
+        name: 'tasks',
+        builder: (context, state) => const AuthenticatedPage(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
@@ -22,44 +55,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ),
   );
-  ref.onDispose(router.dispose);
+  ref.onDispose(() {
+    router.dispose();
+    refresh.dispose();
+  });
   return router;
 });
 
-// Pantalla provisional: las pantallas funcionales corresponden a la Fase 4.
-class _StartupPage extends StatelessWidget {
-  const _StartupPage();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.home_outlined,
-                  size: 72,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Casa en Juego',
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Una casa limpia. Un equipo que suma.',
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+class _RouterRefresh extends ChangeNotifier {
+  void refresh() => notifyListeners();
 }
