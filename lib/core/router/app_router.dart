@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/login_page.dart';
 import '../../features/auth/presentation/session_page.dart';
 import '../../features/auth/providers/auth_providers.dart';
+import '../../features/tasks/presentation/tasks_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final refresh = _RouterRefresh();
@@ -42,7 +43,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/tasks',
         name: 'tasks',
-        builder: (context, state) => const AuthenticatedPage(),
+        builder: (context, state) => const TasksPage(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

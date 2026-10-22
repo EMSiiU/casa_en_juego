@@ -47,6 +47,25 @@ abstract final class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     ),
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: surface,
+      indicatorColor: const Color(0xFF39334F),
+      labelTextStyle: WidgetStateProperty.resolveWith(
+        (states) => TextStyle(
+          fontSize: 11,
+          color: states.contains(WidgetState.selected)
+              ? primary
+              : secondaryText,
+        ),
+      ),
+      iconTheme: WidgetStateProperty.resolveWith(
+        (states) => IconThemeData(
+          color: states.contains(WidgetState.selected)
+              ? primary
+              : secondaryText,
+        ),
+      ),
+    ),
     bottomSheetTheme: const BottomSheetThemeData(
       backgroundColor: surface,
       showDragHandle: true,

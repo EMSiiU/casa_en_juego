@@ -1,5 +1,9 @@
 import 'dart:async';
 
+import 'package:casa_en_juego/features/tasks/providers/tasks_providers.dart';
+
+import 'support/fake_tasks_repository.dart';
+
 import 'package:casa_en_juego/core/router/app_router.dart';
 import 'package:casa_en_juego/features/auth/models/app_user.dart';
 import 'package:casa_en_juego/features/auth/models/auth_failure.dart';
@@ -59,7 +63,10 @@ Future<ProviderContainer> startApp(
 ) async {
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [authRepositoryProvider.overrideWithValue(repository)],
+      overrides: [
+        authRepositoryProvider.overrideWithValue(repository),
+        tasksRepositoryProvider.overrideWithValue(FakeTasksRepository()),
+      ],
       child: const CasaEnJuegoApp(),
     ),
   );
@@ -83,7 +90,10 @@ void main() {
     final repository = FakeAuthRepository();
     addTearDown(repository.events.close);
     await startApp(tester, repository);
-    await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -600));
+    await tester.drag(
+      find.byType(SingleChildScrollView),
+      const Offset(0, -600),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Iniciar sesión').hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -194,6 +204,8 @@ void main() {
             .path,
         '/tasks',
       );
+      await tester.tap(find.byTooltip('Abrir cuenta'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Cerrar sesión'));
       await tester.pumpAndSettle();
       expect(find.text('Iniciar sesión'), findsOneWidget);
@@ -225,6 +237,8 @@ void main() {
       final container = await startApp(tester, repository);
       expect(find.text('¡Hola, Ana!'), findsOneWidget);
       repository.signOutError = const AuthFailure('No se pudo cerrar sesión.');
+      await tester.tap(find.byTooltip('Abrir cuenta'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Cerrar sesión'));
       await tester.pumpAndSettle();
       expect(find.text('No se pudo cerrar sesión.'), findsOneWidget);
