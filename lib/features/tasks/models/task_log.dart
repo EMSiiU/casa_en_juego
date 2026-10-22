@@ -1,4 +1,6 @@
-enum TaskLogStatus { pending, approved, rejected }
+import '../../../core/constants/task_log_status.dart';
+
+export '../../../core/constants/task_log_status.dart';
 
 class TaskLog {
   const TaskLog({

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../core/router/app_navigation_bar.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/models/auth_failure.dart';
 import '../../auth/providers/auth_providers.dart';
@@ -63,9 +65,13 @@ class _TasksPageState extends ConsumerState<TasksPage> {
       );
       if (mounted && sent == true) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
+          SnackBar(
+            content: const Text(
               'Enviada a revisión. Tus puntos se sumarán cuando sea aprobada.',
+            ),
+            action: SnackBarAction(
+              label: 'Ver actividad',
+              onPressed: () => _openActivity(submitted: true),
             ),
           ),
         );
@@ -73,6 +79,15 @@ class _TasksPageState extends ConsumerState<TasksPage> {
     } finally {
       _sheetOpen = false;
     }
+  }
+
+  Future<void> _openActivity({bool submitted = false}) async {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    await context.pushNamed<void>(
+      'activity',
+      queryParameters: submitted ? {'submitted': 'true'} : {},
+    );
+    if (mounted) ref.invalidate(tasksDashboardProvider);
   }
 
   @override
@@ -201,32 +216,7 @@ class _TasksPageState extends ConsumerState<TasksPage> {
           ),
         ),
       ),
-      // Las demás pestañas se habilitarán al implementar sus respectivas features.
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: 0,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Tareas',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.emoji_events_outlined),
-            label: 'Ranking',
-            enabled: false,
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.check_circle_outline),
-            label: 'Revisiones',
-            enabled: false,
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            label: 'Perfil',
-            enabled: false,
-          ),
-        ],
-      ),
+      bottomNavigationBar: const AppNavigationBar(),
     );
   }
 
@@ -323,7 +313,15 @@ class _TasksPageState extends ConsumerState<TasksPage> {
         ),
         if (pending.isNotEmpty) ...[
           const SizedBox(height: 16),
-          _PendingBanner(logs: pending),
+          Semantics(
+            button: true,
+            label: 'Ver mis solicitudes pendientes',
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: _openActivity,
+              child: _PendingBanner(logs: pending),
+            ),
+          ),
         ],
         const SizedBox(height: 24),
         Row(
@@ -334,9 +332,9 @@ class _TasksPageState extends ConsumerState<TasksPage> {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
-            const Tooltip(
-              message: 'Disponible al desarrollar Mi actividad',
-              child: TextButton(onPressed: null, child: Text('Mi actividad →')),
+            TextButton(
+              onPressed: _openActivity,
+              child: const Text('Mi actividad →'),
             ),
           ],
         ),

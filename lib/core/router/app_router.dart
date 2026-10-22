@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/activity/presentation/activity_page.dart';
+
 import '../../features/auth/presentation/login_page.dart';
 import '../../features/auth/presentation/session_page.dart';
 import '../../features/auth/providers/auth_providers.dart';
@@ -44,6 +46,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/tasks',
         name: 'tasks',
         builder: (context, state) => const TasksPage(),
+        routes: [
+          GoRoute(
+            path: 'activity',
+            name: 'activity',
+            builder: (context, state) => ActivityPage(
+              showSubmissionNotice:
+                  state.uri.queryParameters['submitted'] == 'true',
+            ),
+          ),
+        ],
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
