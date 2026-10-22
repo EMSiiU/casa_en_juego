@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/network/supabase_provider.dart';
 import '../../auth/providers/auth_providers.dart';
@@ -12,12 +14,24 @@ final tasksRepositoryProvider = Provider<TasksRepository>((ref) {
 
 final tasksDashboardProvider = FutureProvider.autoDispose<TasksDashboard>((
   ref,
-) {
+) async {
   final user = ref.watch(currentUserProvider).asData?.value;
   if (user == null) {
     throw const TaskFailure('Inicia sesión para ver tus tareas.');
   }
-  return ref.watch(tasksRepositoryProvider).loadDashboard();
+  final repository = ref.watch(tasksRepositoryProvider);
+  try {
+    return await repository.loadDashboard();
+  } catch (error) {
+    // Solo en desarrollo: identifica la causa sin imprimir sesiones ni claves.
+    if (kDebugMode) {
+      final detail = error is PostgrestException
+          ? '${error.code}: ${error.message}'
+          : error.runtimeType.toString();
+      debugPrint('tasks.loadDashboard failed: $detail');
+    }
+    rethrow;
+  }
 }, retry: (retryCount, error) => null);
 
 final taskSubmissionProvider =
