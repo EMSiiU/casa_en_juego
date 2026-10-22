@@ -1,37 +1,86 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-class AppNavigationBar extends StatelessWidget {
-  const AppNavigationBar({super.key});
+import '../../features/reviews/providers/reviews_providers.dart';
+import '../../features/tasks/providers/tasks_providers.dart';
+import '../theme/app_theme.dart';
+
+class AppNavigationBar extends ConsumerStatefulWidget {
+  const AppNavigationBar({super.key, this.selectedIndex = 0});
+  final int selectedIndex;
 
   @override
-  Widget build(BuildContext context) => NavigationBar(
-    selectedIndex: 0,
-    onDestinationSelected: (index) {
-      if (index == 0) context.go('/tasks');
-    },
-    // Las demás pestañas se habilitarán al implementar sus respectivas features.
-    destinations: const [
-      NavigationDestination(
-        icon: Icon(Icons.home_outlined),
-        selectedIcon: Icon(Icons.home),
-        label: 'Tareas',
-      ),
-      NavigationDestination(
-        icon: Icon(Icons.emoji_events_outlined),
-        label: 'Ranking',
-        enabled: false,
-      ),
-      NavigationDestination(
-        icon: Icon(Icons.check_circle_outline),
-        label: 'Revisiones',
-        enabled: false,
-      ),
-      NavigationDestination(
-        icon: Icon(Icons.person_outline),
-        label: 'Perfil',
-        enabled: false,
-      ),
-    ],
-  );
+  ConsumerState<AppNavigationBar> createState() => _AppNavigationBarState();
+}
+
+class _AppNavigationBarState extends ConsumerState<AppNavigationBar> {
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycle = AppLifecycleListener(
+      onResume: () => ref.invalidate(reviewsInboxProvider),
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final count = ref.watch(reviewsInboxProvider).asData?.value.length ?? 0;
+    return NavigationBar(
+      selectedIndex: widget.selectedIndex,
+      onDestinationSelected: (index) {
+        if (index == 0) {
+          ref.invalidate(reviewsInboxProvider);
+          ref.invalidate(tasksDashboardProvider);
+          context.go('/tasks');
+        } else if (index == 2) {
+          ref.invalidate(reviewsInboxProvider);
+          context.go('/reviews');
+        }
+      },
+      // Ranking y Perfil se habilitarán al implementar sus respectivas features.
+      destinations: [
+        const NavigationDestination(
+          icon: Icon(Icons.home_outlined),
+          selectedIcon: Icon(Icons.home),
+          label: 'Tareas',
+        ),
+        const NavigationDestination(
+          icon: Icon(Icons.emoji_events_outlined),
+          label: 'Ranking',
+          enabled: false,
+        ),
+        NavigationDestination(
+          icon: Badge(
+            backgroundColor: AppTheme.primary,
+            textColor: AppTheme.background,
+            isLabelVisible: count > 0,
+            label: Text('$count'),
+            child: const Icon(Icons.check_circle_outline),
+          ),
+          selectedIcon: Badge(
+            backgroundColor: AppTheme.primary,
+            textColor: AppTheme.background,
+            isLabelVisible: count > 0,
+            label: Text('$count'),
+            child: const Icon(Icons.check_circle),
+          ),
+          label: 'Revisiones',
+        ),
+        const NavigationDestination(
+          icon: Icon(Icons.person_outline),
+          label: 'Perfil',
+          enabled: false,
+        ),
+      ],
+    );
+  }
 }

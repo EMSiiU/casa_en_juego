@@ -1,3 +1,7 @@
+import 'package:casa_en_juego/features/reviews/providers/reviews_providers.dart';
+
+import 'support/fake_reviews_repository.dart';
+
 import 'dart:async';
 
 import 'package:casa_en_juego/features/tasks/providers/tasks_providers.dart';
@@ -64,6 +68,7 @@ Future<ProviderContainer> startApp(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        reviewsRepositoryProvider.overrideWithValue(FakeReviewsRepository()),
         authRepositoryProvider.overrideWithValue(repository),
         tasksRepositoryProvider.overrideWithValue(FakeTasksRepository()),
       ],

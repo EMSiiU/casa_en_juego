@@ -8,6 +8,7 @@ import '../../features/auth/presentation/login_page.dart';
 import '../../features/auth/presentation/session_page.dart';
 import '../../features/auth/providers/auth_providers.dart';
 import '../../features/tasks/presentation/tasks_page.dart';
+import '../../features/reviews/presentation/reviews_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final refresh = _RouterRefresh();
@@ -31,6 +32,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/reviews',
+        name: 'reviews',
+        builder: (context, state) => const ReviewsPage(),
+      ),
       GoRoute(path: '/', redirect: (context, state) => '/tasks'),
       GoRoute(
         path: '/login',

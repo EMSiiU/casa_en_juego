@@ -6,6 +6,7 @@ import '../../../core/router/app_navigation_bar.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/models/auth_failure.dart';
 import '../../auth/providers/auth_providers.dart';
+import '../../reviews/providers/reviews_providers.dart';
 import '../models/household_task.dart';
 import '../models/task_failure.dart';
 import '../models/task_log.dart';
@@ -42,6 +43,7 @@ class _TasksPageState extends ConsumerState<TasksPage> {
   }
 
   Future<void> _refresh() async {
+    ref.invalidate(reviewsInboxProvider);
     ref.invalidate(tasksDashboardProvider);
     try {
       await ref.read(tasksDashboardProvider.future);
