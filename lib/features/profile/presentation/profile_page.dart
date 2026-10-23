@@ -203,6 +203,23 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           ),
         ),
         const SizedBox(height: 28),
+        if (user.isAdmin) ...[
+          Card(
+            margin: EdgeInsets.zero,
+            color: const Color(0xFF39334F),
+            child: ListTile(
+              leading: const Icon(
+                Icons.admin_panel_settings_outlined,
+                color: AppTheme.primary,
+              ),
+              title: const Text('Cuidar del equipo'),
+              subtitle: const Text('Administrar tareas y ciclos'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: isSigningOut ? null : () => context.pushNamed('admin'),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
         Card(
           margin: EdgeInsets.zero,
           child: Column(

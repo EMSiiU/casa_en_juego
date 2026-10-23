@@ -11,6 +11,9 @@ import '../../features/tasks/presentation/tasks_page.dart';
 import '../../features/reviews/presentation/reviews_page.dart';
 import '../../features/leaderboard/presentation/leaderboard_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
+import '../../features/admin/presentation/admin_page.dart';
+import '../../features/admin/presentation/task_catalog_page.dart';
+import '../../features/admin/presentation/task_editor_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final refresh = _RouterRefresh();
@@ -28,12 +31,41 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (user.asData?.value == null) {
         return path == '/login' ? null : '/login';
       }
+      if ((path == '/admin' || path.startsWith('/admin/')) &&
+          user.asData?.value?.isAdmin != true) {
+        return '/profile';
+      }
       if (path == '/login' || path == '/session' || path == '/') {
         return '/tasks';
       }
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/admin',
+        name: 'admin',
+        builder: (context, state) => const AdminPage(),
+        routes: [
+          GoRoute(
+            path: 'tasks',
+            name: 'adminTasks',
+            builder: (context, state) => const TaskCatalogPage(),
+            routes: [
+              GoRoute(
+                path: 'new',
+                name: 'adminNewTask',
+                builder: (context, state) => const TaskEditorPage(),
+              ),
+              GoRoute(
+                path: ':taskId',
+                name: 'adminEditTask',
+                builder: (context, state) =>
+                    TaskEditorPage(taskId: state.pathParameters['taskId']!),
+              ),
+            ],
+          ),
+        ],
+      ),
       GoRoute(
         path: '/profile',
         name: 'profile',
