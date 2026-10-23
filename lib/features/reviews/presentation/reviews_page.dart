@@ -214,6 +214,10 @@ class ReviewsPage extends ConsumerWidget {
                                             context,
                                           ).showSnackBar(
                                             SnackBar(
+                                              duration: const Duration(
+                                                seconds: 3,
+                                              ),
+                                              persist: false,
                                               content: Text(
                                                 decision ==
                                                         ReviewDecision.approved

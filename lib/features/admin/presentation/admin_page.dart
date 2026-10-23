@@ -146,6 +146,10 @@ class _AdminPageState extends ConsumerState<AdminPage> {
                                           ScaffoldMessenger.of(context)
                                               .showSnackBar(
                                                 const SnackBar(
+                                                  duration: Duration(
+                                                    seconds: 3,
+                                                  ),
+                                                  persist: false,
                                                   content: Text(
                                                     'Nuevo ciclo iniciado.',
                                                   ),
@@ -237,6 +241,8 @@ class _AdminPageState extends ConsumerState<AdminPage> {
                               if (context.mounted && closed == true) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
+                                    duration: Duration(seconds: 3),
+                                    persist: false,
                                     content: Text(
                                       'Ciclo finalizado. Resultados conservados.',
                                     ),

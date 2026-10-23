@@ -96,8 +96,13 @@ class _TaskFormState extends ConsumerState<_TaskForm> {
         .read(adminActionProvider.notifier)
         .saveTask(id: widget.initialTask?.id, draft: draft);
     if (mounted && saved) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Tarea guardada.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          duration: Duration(seconds: 3),
+          persist: false,
+          content: Text('Tarea guardada.'),
+        ),
+      );
       if (context.canPop()) {
         context.pop();
       } else {

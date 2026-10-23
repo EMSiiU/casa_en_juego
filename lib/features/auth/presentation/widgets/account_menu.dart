@@ -13,7 +13,11 @@ class AccountMenu extends ConsumerWidget {
     ref.listen(authControllerProvider, (previous, next) {
       if (next.hasError) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AuthFailure.messageFor(next.error!))),
+          SnackBar(
+            duration: const Duration(seconds: 3),
+            persist: false,
+            content: Text(AuthFailure.messageFor(next.error!)),
+          ),
         );
       }
     });

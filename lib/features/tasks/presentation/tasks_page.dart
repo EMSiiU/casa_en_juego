@@ -72,6 +72,8 @@ class _TasksPageState extends ConsumerState<TasksPage> {
       if (mounted && sent == true) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            duration: const Duration(seconds: 3),
+            persist: false,
             content: const Text(
               'Enviada a revisión. Tus puntos se sumarán cuando sea aprobada.',
             ),
