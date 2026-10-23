@@ -6,6 +6,7 @@ import '../../../core/network/supabase_provider.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../../activity/providers/activity_providers.dart';
 import '../../tasks/providers/tasks_providers.dart';
+import '../../leaderboard/providers/leaderboard_providers.dart';
 import '../models/review_action_state.dart';
 import '../models/review_decision.dart';
 import '../models/review_failure.dart';
@@ -80,6 +81,7 @@ class ReviewActionController extends Notifier<ReviewActionState> {
       state = const ReviewActionState();
       ref.invalidate(reviewsInboxProvider);
       ref.invalidate(tasksDashboardProvider);
+      ref.invalidate(leaderboardProvider);
       ref.invalidate(activityProvider);
       return true;
     } catch (error) {

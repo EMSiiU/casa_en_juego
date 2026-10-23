@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/reviews/providers/reviews_providers.dart';
+import '../../features/leaderboard/providers/leaderboard_providers.dart';
 import '../../features/tasks/providers/tasks_providers.dart';
 import '../theme/app_theme.dart';
 
@@ -41,12 +42,15 @@ class _AppNavigationBarState extends ConsumerState<AppNavigationBar> {
           ref.invalidate(reviewsInboxProvider);
           ref.invalidate(tasksDashboardProvider);
           context.go('/tasks');
+        } else if (index == 1) {
+          ref.invalidate(leaderboardProvider);
+          context.go('/leaderboard');
         } else if (index == 2) {
           ref.invalidate(reviewsInboxProvider);
           context.go('/reviews');
         }
       },
-      // Ranking y Perfil se habilitarán al implementar sus respectivas features.
+      // Perfil se habilitará al implementar su feature.
       destinations: [
         const NavigationDestination(
           icon: Icon(Icons.home_outlined),
@@ -56,7 +60,7 @@ class _AppNavigationBarState extends ConsumerState<AppNavigationBar> {
         const NavigationDestination(
           icon: Icon(Icons.emoji_events_outlined),
           label: 'Ranking',
-          enabled: false,
+          selectedIcon: Icon(Icons.emoji_events),
         ),
         NavigationDestination(
           icon: Badge(
