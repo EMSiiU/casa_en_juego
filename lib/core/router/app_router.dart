@@ -10,6 +10,7 @@ import '../../features/auth/providers/auth_providers.dart';
 import '../../features/tasks/presentation/tasks_page.dart';
 import '../../features/reviews/presentation/reviews_page.dart';
 import '../../features/leaderboard/presentation/leaderboard_page.dart';
+import '../../features/profile/presentation/profile_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final refresh = _RouterRefresh();
@@ -33,6 +34,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/profile',
+        name: 'profile',
+        builder: (context, state) => const ProfilePage(),
+      ),
       GoRoute(
         path: '/leaderboard',
         name: 'leaderboard',
@@ -63,6 +69,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: 'activity',
             name: 'activity',
             builder: (context, state) => ActivityPage(
+              fromProfile: state.uri.queryParameters['from'] == 'profile',
               showSubmissionNotice:
                   state.uri.queryParameters['submitted'] == 'true',
             ),

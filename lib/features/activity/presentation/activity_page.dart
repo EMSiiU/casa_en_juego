@@ -12,7 +12,12 @@ import '../providers/activity_providers.dart';
 import 'widgets/activity_entry_card.dart';
 
 class ActivityPage extends ConsumerStatefulWidget {
-  const ActivityPage({super.key, this.showSubmissionNotice = false});
+  const ActivityPage({
+    super.key,
+    this.showSubmissionNotice = false,
+    this.fromProfile = false,
+  });
+  final bool fromProfile;
   final bool showSubmissionNotice;
 
   @override
@@ -54,9 +59,10 @@ class _ActivityPageState extends ConsumerState<ActivityPage> {
       appBar: AppBar(
         toolbarHeight: 80,
         leading: IconButton(
-          tooltip: 'Volver a tareas',
-          onPressed: () =>
-              context.canPop() ? context.pop() : context.go('/tasks'),
+          tooltip: widget.fromProfile ? 'Volver al perfil' : 'Volver a tareas',
+          onPressed: () => context.canPop()
+              ? context.pop()
+              : context.go(widget.fromProfile ? '/profile' : '/tasks'),
           icon: const Icon(Icons.arrow_back),
         ),
         title: Column(
@@ -214,7 +220,9 @@ class _ActivityPageState extends ConsumerState<ActivityPage> {
           ),
         ),
       ),
-      bottomNavigationBar: const AppNavigationBar(),
+      bottomNavigationBar: AppNavigationBar(
+        selectedIndex: widget.fromProfile ? 3 : 0,
+      ),
     );
   }
 

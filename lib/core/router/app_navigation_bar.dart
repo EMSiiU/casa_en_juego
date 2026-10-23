@@ -48,9 +48,10 @@ class _AppNavigationBarState extends ConsumerState<AppNavigationBar> {
         } else if (index == 2) {
           ref.invalidate(reviewsInboxProvider);
           context.go('/reviews');
+        } else if (index == 3) {
+          context.go('/profile');
         }
       },
-      // Perfil se habilitará al implementar su feature.
       destinations: [
         const NavigationDestination(
           icon: Icon(Icons.home_outlined),
@@ -82,7 +83,7 @@ class _AppNavigationBarState extends ConsumerState<AppNavigationBar> {
         const NavigationDestination(
           icon: Icon(Icons.person_outline),
           label: 'Perfil',
-          enabled: false,
+          selectedIcon: Icon(Icons.person),
         ),
       ],
     );
