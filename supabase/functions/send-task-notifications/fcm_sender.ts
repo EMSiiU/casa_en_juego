@@ -14,11 +14,20 @@ function base64Url(bytes: Uint8Array): string {
 }
 
 export function buildMessage(job: PushJob, token: string) {
-  const body = job.kind === "submitted"
+  const body = job.kind === "reminder"
+    ? "Hoy todavía no tienes tareas pendientes o aprobadas. ¡Anímate a sumar en casa!"
+    : job.kind === "submitted"
     ? "Hay una nueva tarea por revisar."
     : job.kind === "approved"
     ? "Una de tus tareas fue aprobada. ¡Tu esfuerzo suma!"
     : "Una de tus tareas fue rechazada. Consulta tu actividad.";
+  const expiresAt = job.expires_at
+    ? Date.parse(job.expires_at)
+    : Date.now() + 86400000;
+  const ttl = Math.max(
+    0,
+    Math.min(86400, Math.floor((expiresAt - Date.now()) / 1000)),
+  );
   return {
     message: {
       // El SDK Flutter actual registra FIDs para los envíos directos de FCM v1.
@@ -31,7 +40,7 @@ export function buildMessage(job: PushJob, token: string) {
       },
       android: {
         priority: "high",
-        ttl: "86400s",
+        ttl: `${ttl}s`,
         notification: {
           tag: job.id,
           icon: "ic_notification",
@@ -41,7 +50,7 @@ export function buildMessage(job: PushJob, token: string) {
       apns: {
         headers: {
           "apns-collapse-id": job.id,
-          "apns-expiration": String(Math.floor(Date.now() / 1000) + 86400),
+          "apns-expiration": String(Math.floor(expiresAt / 1000)),
         },
         payload: { aps: { sound: "default" } },
       },

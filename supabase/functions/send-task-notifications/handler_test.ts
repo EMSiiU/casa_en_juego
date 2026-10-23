@@ -62,6 +62,50 @@ function request(header = secret) {
   });
 }
 
+Deno.test("Reminders require an explicit fresh eligibility result", async () => {
+  const reminder: PushJob = { ...job, kind: "reminder", task_log_id: null };
+  assert(!isRelevant(reminder, context));
+  assert(!isRelevant(reminder, { ...context, reminderEligible: false }));
+  assert(isRelevant(reminder, { ...context, reminderEligible: true }));
+  assert(
+    !isRelevant(reminder, {
+      ...context,
+      notificationsEnabled: false,
+      reminderEligible: true,
+    }),
+  );
+  const store = new FakeStore();
+  store.jobs = [reminder];
+  store.value = { ...context, reminderEligible: false };
+  let sends = 0;
+  await createHandler(store, {
+    send: async () => {
+      sends++;
+      return "sent";
+    },
+  }, secret)(request());
+  assert(sends === 0 && store.updates[0].status === "skipped");
+});
+
+Deno.test("Reminder payload points at the recipient and limits the OS delivery window", () => {
+  const expires = Date.now() + 1800000;
+  const reminder: PushJob = {
+    ...job,
+    kind: "reminder",
+    task_log_id: null,
+    expires_at: new Date(expires).toISOString(),
+  };
+  const { message } = buildMessage(reminder, context.token);
+  assert(message.data.kind === "reminder");
+  assert(message.notification.body.includes("Hoy todavía"));
+  const ttl = Number(message.android.ttl.replace("s", ""));
+  assert(ttl > 0 && ttl <= 1800);
+  assert(
+    message.apns.headers["apns-expiration"] ===
+      String(Math.floor(expires / 1000)),
+  );
+});
+
 Deno.test("Unknown callers cannot claim jobs even with a valid-looking webhook body", async () => {
   const store = new FakeStore();
   const handler = createHandler(store, { send: async () => "sent" }, secret);

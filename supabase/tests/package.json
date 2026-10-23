@@ -1,0 +1,10 @@
+{
+  "name": "casa-en-juego-database-tests",
+  "private": true,
+  "scripts": {
+    "test": "node inactivity_reminders_test.cjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.11"
+  }
+}

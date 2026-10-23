@@ -93,6 +93,8 @@ Esta etapa queda pendiente mientras se activa y prueba Android. Para iOS falta:
 
 ## Validación automatizada
 
+Los avisos opcionales de las 18:00 y 20:00 se activan con [la guía de recordatorios](inactivity_reminders_setup.md), después de tener funcionando esta integración básica.
+
 Para editar las funciones en VS Code, instalar la extensión oficial **Deno**, de **Denoland** (`denoland.vscode-deno`), y tener Deno disponible en la terminal. `.vscode/settings.json` limita su analizador a `supabase/functions`. Si VS Code indica que no encuentra Deno, configurar **Deno: Path** con la ruta de su ejecutable y ejecutar **Developer: Reload Window**. Los avisos del analizador TypeScript estándar sobre `Deno`, importaciones `npm:` o extensiones `.ts` no sustituyen la comprobación con `deno check`.
 
 ```powershell

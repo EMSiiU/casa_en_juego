@@ -52,3 +52,4 @@ supabase/.env*
 supabase/.temp/
 **/*service-account*.json
 **/firebase-adminsdk*.json
+/supabase/tests/node_modules/

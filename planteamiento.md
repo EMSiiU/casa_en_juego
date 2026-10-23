@@ -56,6 +56,7 @@ Aplicación móvil multiplataforma (iOS y Android) diseñada para un grupo famil
 * `push_jobs`: cola de avisos por dispositivo y evento de `task_logs`, con estado, intentos y arrendamiento de procesamiento. Solo el servidor puede consultar y procesar la cola.
 * Al enviar una tarea, se avisa a los demás miembros con dispositivos registrados y preferencia activa. Al aprobar o rechazar, se avisa al solicitante. La preferencia se verifica al generar y al entregar.
 * Las notificaciones abren Revisiones o Mi actividad. Los avisos de otra cuenta se descartan en Flutter; cerrar sesión revoca el registro del dispositivo. En primer plano las alertas duran tres segundos.
+* **Recordatorios diarios:** a las 18:00 y 20:00 de `America/Mexico_City`, avisar al usuario sin solicitudes propias pendientes o aprobadas registradas ese día. Requieren preferencia activa, dispositivo registrado y temporada activa. Se vuelve a comprobar la actividad antes de enviar; una tarea entre ambos horarios evita el segundo aviso. Los rechazados no cuentan como actividad válida. El recordatorio abre Tareas, se deduplica por dispositivo, día y horario y vence a los 30 minutos. Activación en `docs/inactivity_reminders_setup.md`.
 * La cola permite reintentos sin depender de que el usuario mantenga abierta la app. La entrega Android/iOS requiere configurar Firebase y desplegar la Edge Function; push web queda fuera de esta integración móvil.
 
 1. **Autenticación Cerrada:** El administrador crea las cuentas en el dashboard de Supabase. Los usuarios inician sesión con correo y contraseña.

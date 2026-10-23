@@ -41,6 +41,15 @@ if (!account || !url || !key || secret.length < 32) {
       return data;
     },
     async context(job): Promise<PushContext | null> {
+      if (job.kind === "reminder") {
+        const { data, error } = await client.rpc("get_push_reminder_context", {
+          p_job_id: job.id,
+          p_lease_id: job.lease_id,
+        });
+        if (error) throw error;
+        return data;
+      }
+      if (!job.task_log_id) return null;
       const [device, user, log] = await Promise.all([
         client.from("push_devices").select("token,user_id").eq(
           "id",

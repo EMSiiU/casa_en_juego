@@ -73,6 +73,15 @@ void main() {
       '/tasks/activity',
     );
   });
+  test('Reminders are recognized and open the tasks page', () {
+    final reminder = PushNotice.fromData({
+      'kind': 'reminder',
+      'notification_id': 'reminder-id',
+      'recipient_id': 'member-id',
+    });
+    expect(reminder!.route, '/tasks');
+    expect(reminder.message, contains('Hoy todavía'));
+  });
   test(
     'Disabled preference never requests permission or registers a device',
     () async {
@@ -219,6 +228,25 @@ void main() {
     expect(
       container.read(appRouterProvider).routeInformationProvider.value.uri.path,
       '/tasks/activity',
+    );
+  });
+  testWidgets('Opening a reminder returns to tasks instead of activity', (
+    tester,
+  ) async {
+    final container = await start(tester);
+    container.read(appRouterProvider).go('/reviews');
+    await tester.pumpAndSettle();
+    gateway.opened.add(
+      const PushNotice(
+        id: 'reminder',
+        recipientId: 'member-id',
+        kind: PushNoticeKind.reminder,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      container.read(appRouterProvider).routeInformationProvider.value.uri.path,
+      '/tasks',
     );
   });
 }

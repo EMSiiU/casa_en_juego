@@ -2,8 +2,9 @@ export type PushJob = {
   id: string;
   device_id: string;
   recipient_id: string;
-  task_log_id: string;
-  kind: "submitted" | "approved" | "rejected";
+  task_log_id: string | null;
+  kind: "submitted" | "approved" | "rejected" | "reminder";
+  expires_at?: string;
   attempts: number;
   lease_id: string;
 };
@@ -12,9 +13,10 @@ export type PushContext = {
   token: string;
   deviceUserId: string;
   notificationsEnabled: boolean;
-  taskUserId: string;
-  taskStatus: string;
-  seasonActive: boolean;
+  taskUserId?: string;
+  taskStatus?: string;
+  seasonActive?: boolean;
+  reminderEligible?: boolean;
 };
 
 export interface PushStore {
@@ -39,8 +41,9 @@ export function isRelevant(job: PushJob, context: PushContext): boolean {
   if (
     !context.notificationsEnabled || context.deviceUserId !== job.recipient_id
   ) return false;
+  if (job.kind === "reminder") return context.reminderEligible === true;
   return job.kind === "submitted"
-    ? context.seasonActive && context.taskStatus === "pending" &&
+    ? context.seasonActive === true && context.taskStatus === "pending" &&
       context.taskUserId !== job.recipient_id
     : context.taskUserId === job.recipient_id &&
       context.taskStatus === job.kind;

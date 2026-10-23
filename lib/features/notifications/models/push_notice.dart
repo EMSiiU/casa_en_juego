@@ -1,4 +1,4 @@
-enum PushNoticeKind { submitted, approved, rejected }
+enum PushNoticeKind { submitted, approved, rejected, reminder }
 
 class PushNotice {
   const PushNotice({
@@ -26,9 +26,13 @@ class PushNotice {
     return PushNotice(id: id, recipientId: recipient, kind: kind);
   }
 
-  String get route =>
-      kind == PushNoticeKind.submitted ? '/reviews' : '/tasks/activity';
+  String get route => switch (kind) {
+    PushNoticeKind.submitted => '/reviews',
+    PushNoticeKind.reminder => '/tasks',
+    _ => '/tasks/activity',
+  };
   String get message => switch (kind) {
+    PushNoticeKind.reminder => 'Hoy todavía no tienes tareas pendientes o aprobadas. ¡Anímate a sumar en casa!',
     PushNoticeKind.submitted => 'Hay una nueva tarea por revisar.',
     PushNoticeKind.approved =>
       'Una de tus tareas fue aprobada. ¡Tu esfuerzo suma!',
