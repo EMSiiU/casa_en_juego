@@ -21,6 +21,17 @@ void main() {
     server.listen((request) async {
       requests.add(request.uri);
       request.response.headers.contentType = ContentType.json;
+      if (request.uri.path.endsWith('get_task_submission_status')) {
+        request.response.write(
+          jsonEncode({
+            'server_now': '2026-10-22T12:00:00Z',
+            'resets_at': '2026-10-23T06:00:00Z',
+            'blocked_task_ids': ['task-id'],
+          }),
+        );
+        await request.response.close();
+        return;
+      }
       if (request.method == 'POST') {
         inserts.add(
           jsonDecode(await utf8.decoder.bind(request).join())
@@ -91,6 +102,7 @@ void main() {
     expect(dashboard.logs.length, 501);
     expect(dashboard.approvedPointsFor('member-id'), 1503);
     expect(dashboard.tasks.single.points, 99);
+    expect(dashboard.submissionStatus!.isBlocked('task-id'), isTrue);
     final logRequests = requests
         .where((uri) => uri.path.endsWith('task_logs'))
         .toList();

@@ -52,6 +52,7 @@ class _TaskFormState extends ConsumerState<_TaskForm> {
   late final TextEditingController _pointsController;
   late String _iconName;
   late bool _isActive;
+  late bool _isDailyLimited;
   String? _validationError;
   @override
   void initState() {
@@ -64,6 +65,7 @@ class _TaskFormState extends ConsumerState<_TaskForm> {
     );
     _iconName = widget.initialTask?.iconName ?? 'broom';
     _isActive = widget.initialTask?.isActive ?? true;
+    _isDailyLimited = widget.initialTask?.isDailyLimited ?? false;
   }
 
   @override
@@ -82,6 +84,7 @@ class _TaskFormState extends ConsumerState<_TaskForm> {
         points: int.parse(_pointsController.text),
         iconName: _iconName,
         isActive: _isActive,
+        isDailyLimited: _isDailyLimited,
       );
     } on AdminFailure catch (error) {
       setState(() => _validationError = error.message);
@@ -199,6 +202,20 @@ class _TaskFormState extends ConsumerState<_TaskForm> {
                 ],
               ),
               const SizedBox(height: 20),
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Una vez al día'),
+                subtitle: Text(
+                  _isDailyLimited
+                      ? 'Se renueva a medianoche de Ciudad de México. Si se rechaza, se puede reenviar.'
+                      : 'Se puede repetir varias veces al día.',
+                ),
+                value: _isDailyLimited,
+                onChanged: action.isBusy
+                    ? null
+                    : (value) => setState(() => _isDailyLimited = value),
+              ),
+              const SizedBox(height: 12),
               SwitchListTile.adaptive(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Tarea activa'),

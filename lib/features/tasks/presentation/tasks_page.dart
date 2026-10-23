@@ -1,10 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_navigation_bar.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../auth/models/auth_failure.dart';
+import '../../auth/presentation/widgets/account_menu.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../../reviews/providers/reviews_providers.dart';
 import '../models/household_task.dart';
@@ -25,6 +27,7 @@ class TasksPage extends ConsumerStatefulWidget {
 class _TasksPageState extends ConsumerState<TasksPage> {
   late final AppLifecycleListener _lifecycle;
   bool _sheetOpen = false;
+  Timer? _dayTimer;
 
   @override
   void initState() {
@@ -38,6 +41,7 @@ class _TasksPageState extends ConsumerState<TasksPage> {
 
   @override
   void dispose() {
+    _dayTimer?.cancel();
     _lifecycle.dispose();
     super.dispose();
   }
@@ -96,23 +100,21 @@ class _TasksPageState extends ConsumerState<TasksPage> {
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider).asData?.value;
     final dashboard = ref.watch(tasksDashboardProvider);
-    final authAction = ref.watch(authControllerProvider);
-    ref.listen(authControllerProvider, (previous, next) {
-      if (next.hasError) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AuthFailure.messageFor(next.error!))),
-        );
+    ref.listen(tasksDashboardProvider, (previous, next) {
+      final status = next.asData?.value.submissionStatus;
+      if (status == null ||
+          identical(status, previous?.asData?.value.submissionStatus)) {
+        return;
       }
+      _dayTimer?.cancel();
+      _dayTimer = Timer(
+        status.resetsAfter.isNegative ? Duration.zero : status.resetsAfter,
+        () {
+          if (mounted) ref.invalidate(tasksDashboardProvider);
+        },
+      );
     });
     final name = user?.name ?? '';
-    final initials = name
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((part) => part.isNotEmpty)
-        .take(2)
-        .map((part) => part.characters.first)
-        .join()
-        .toUpperCase();
 
     return Scaffold(
       body: SafeArea(
@@ -148,45 +150,7 @@ class _TasksPageState extends ConsumerState<TasksPage> {
                           ],
                         ),
                       ),
-                      PopupMenuButton<String>(
-                        tooltip: 'Abrir cuenta',
-                        enabled: !authAction.isLoading,
-                        onSelected: (_) =>
-                            ref.read(authControllerProvider.notifier).signOut(),
-                        itemBuilder: (context) => [
-                          PopupMenuItem<String>(
-                            enabled: false,
-                            child: Text(
-                              user?.isAdmin == true
-                                  ? 'Administrador'
-                                  : 'Miembro',
-                            ),
-                          ),
-                          const PopupMenuItem(
-                            value: 'signOut',
-                            child: Text('Cerrar sesión'),
-                          ),
-                        ],
-                        child: CircleAvatar(
-                          backgroundColor: const Color(0xFF39334F),
-                          foregroundColor: Colors.white,
-                          child: authAction.isLoading
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : Text(
-                                  initials,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                        ),
-                      ),
+                      const AccountMenu(),
                     ],
                   ),
                   const SizedBox(height: 28),
@@ -356,14 +320,34 @@ class _TasksPageState extends ConsumerState<TasksPage> {
                 borderRadius: BorderRadius.circular(16),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
-                  onTap: () => _confirmTask(task, data.season!.id),
+                  onTap: data.submissionStatus?.isBlocked(task.id) == true
+                      ? null
+                      : () => _confirmTask(task, data.season!.id),
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
                     child: Row(
                       children: [
                         TaskIcon(iconName: task.iconName),
                         const SizedBox(width: 12),
-                        Expanded(child: Text(task.name)),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(task.name),
+                              if (task.isDailyLimited)
+                                Text(
+                                  data.submissionStatus?.isBlocked(task.id) ==
+                                          true
+                                      ? 'Ya enviada hoy · Disponible mañana'
+                                      : 'Una vez al día',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFFB8B9C9),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           '+${task.points}',
@@ -371,10 +355,14 @@ class _TasksPageState extends ConsumerState<TasksPage> {
                         ),
                         IconButton(
                           tooltip: 'Registrar ${task.name}',
-                          onPressed: () => _confirmTask(task, data.season!.id),
-                          icon: const Icon(
-                            Icons.add_circle_outline,
-                            color: AppTheme.primary,
+                          onPressed:
+                              data.submissionStatus?.isBlocked(task.id) == true
+                              ? null
+                              : () => _confirmTask(task, data.season!.id),
+                          icon: Icon(
+                            data.submissionStatus?.isBlocked(task.id) == true
+                                ? Icons.check_circle_outline
+                                : Icons.add_circle_outline,
                           ),
                         ),
                       ],

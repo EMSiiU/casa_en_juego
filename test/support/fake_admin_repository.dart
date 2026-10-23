@@ -81,6 +81,7 @@ class FakeAdminRepository implements AdminRepository {
       points: draft.points,
       iconName: draft.iconName,
       isActive: draft.isActive,
+      isDailyLimited: draft.isDailyLimited,
     );
     tasks = [...tasks.where((task) => task.id != saved.id), saved];
   }

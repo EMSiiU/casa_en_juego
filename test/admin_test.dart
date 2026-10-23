@@ -64,6 +64,25 @@ Future<void> tapVisible(WidgetTester tester, String text) async {
 }
 
 void main() {
+  testWidgets('Admin saves a new icon and daily frequency', (tester) async {
+    final repository = FakeAdminRepository();
+    await startAdmin(tester, repository, location: '/admin/tasks/task-id');
+    await tester.ensureVisible(find.byTooltip('Cama'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Cama'));
+    await tapVisible(tester, 'Una vez al día');
+    await tapVisible(tester, 'Guardar cambios');
+    expect(repository.savedDraft!.iconName, 'bed');
+    expect(repository.savedDraft!.isDailyLimited, isTrue);
+    expect(repository.tasks.single.isDailyLimited, isTrue);
+    expect(find.textContaining('Una vez al día'), findsOneWidget);
+    await tapVisible(tester, 'Barrer el cuarto');
+    expect(
+      tester.widget<SwitchListTile>(find.byType(SwitchListTile).first).value,
+      isTrue,
+    );
+  });
+
   test('Statistics only count approved snapshots and rank ties equally', () {
     final summary = SeasonSummary(
       season: adminSeason,
@@ -185,14 +204,14 @@ void main() {
     await tapVisible(tester, 'Barrer el cuarto');
     await tester.enterText(find.byType(TextFormField).at(1), '12');
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byType(SwitchListTile));
+    await tester.ensureVisible(find.byType(SwitchListTile).last);
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(SwitchListTile));
+    await tester.tap(find.byType(SwitchListTile).last);
     await tapVisible(tester, 'Guardar cambios');
     expect(repository.tasks.single.points, 12);
     expect(repository.tasks.single.isActive, isFalse);
     expect(repository.dashboard.active!.approvedPoints, 8);
-    expect(find.text('12 puntos · Inactiva'), findsOneWidget);
+    expect(find.text('12 puntos · Inactiva · Repetible'), findsOneWidget);
   });
   testWidgets(
     'Closing requires confirmation and preserves results before a new season starts at zero',

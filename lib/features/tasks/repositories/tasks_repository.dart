@@ -4,6 +4,7 @@ import '../models/household_task.dart';
 import '../models/season.dart';
 import '../models/task_log.dart';
 import '../models/tasks_dashboard.dart';
+import '../models/task_submission_status.dart';
 
 abstract interface class TasksRepository {
   Future<TasksDashboard> loadDashboard();
@@ -32,13 +33,18 @@ class SupabaseTasksRepository implements TasksRepository {
     final results = await Future.wait<List<Map<String, dynamic>>>([
       _client
           .from('tasks')
-          .select('id, name, points, icon_name, is_active')
+          .select('id, name, points, icon_name, is_active, is_daily_limited')
           .eq('is_active', true)
           .order('name'),
       _loadLogs(season.id),
     ]);
     return TasksDashboard(
       season: season,
+      submissionStatus: TaskSubmissionStatus.fromJson(
+        Map<String, dynamic>.from(
+          await _client.rpc('get_task_submission_status') as Map,
+        ),
+      ),
       tasks: results[0].map(HouseholdTask.fromJson).toList(),
       logs: results[1].map(TaskLog.fromJson).toList(),
     );

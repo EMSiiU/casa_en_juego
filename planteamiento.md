@@ -27,6 +27,7 @@ Aplicación móvil multiplataforma (iOS y Android) diseñada para un grupo famil
 * `points` (Integer) -> ej. 3
 * `icon_name` (String) -> Referencia al ícono (ej. escoba, platos, baño, basura, gotas, ventana).
 * `is_active` (Boolean) -> Para ocultar tareas del catálogo sin borrar el historial.
+* `is_daily_limited` (Boolean, Default: false) -> El administrador elige entre repetible o una vez al día por usuario.
 
 ### Tabla `seasons` (Ciclos de competencia)
 * `id` (UUID, Primary Key)
@@ -42,6 +43,8 @@ Aplicación móvil multiplataforma (iOS y Android) diseñada para un grupo famil
 * `season_id` (UUID, Foreign Key -> seasons)
 * `status` (String) -> 'pending' | 'approved' | 'rejected'
 * `requested_at` (Timestamptz, Default: `now()`)
+* `requested_day` (Date) -> Día de registro según el servidor en `America/Mexico_City`.
+* `daily_limit_applied` (Boolean) -> Conserva si el límite estaba activo al registrar la solicitud.
 * `approved_by` (UUID, Nullable, Foreign Key -> users)
 * `resolved_at` (Timestamptz, Nullable) -> Fecha en que se aprobó/rechazó.
 
@@ -49,6 +52,10 @@ Aplicación móvil multiplataforma (iOS y Android) diseñada para un grupo famil
 
 1. **Autenticación Cerrada:** El administrador crea las cuentas en el dashboard de Supabase. Los usuarios inician sesión con correo y contraseña.
 2. **Registro de Tareas:** Un usuario selecciona una tarea. El sistema crea un `task_log` `pending` (hora del servidor). Los puntos no se suman hasta ser aprobados.
+   * Las tareas limitadas solo permiten una solicitud pendiente o aprobada por persona y día, incluso entre temporadas. Se renuevan a las 00:00 de Ciudad de México. Una solicitud rechazada permite reenviar ese mismo día. Supabase impone esta regla también ante envíos simultáneos.
+   * Inicialmente se limitan barrer, lavar/limpiar baños, tender/hacer la cama y limpiar/ordenar mis cosas cuando existan en el catálogo. Las demás tareas son repetibles; administración puede cambiar la frecuencia.
+   * El catálogo incorpora iconos de cama, estante, tenis, ropa, cosas de hermanos y cosas personales.
+   * Tareas, Ranking y Revisiones comparten un menú de cuenta para cerrar sesión; Perfil conserva su acceso propio.
 3. **Sistema de Revisiones Separado:**
    * **Mis solicitudes ("Mi actividad"):** El usuario puede ver el estado de sus propias tareas (Pendientes, Aprobadas, Rechazadas).
    * **Solicitudes de otros ("Revisiones"):** Los usuarios ven y deciden (Aprobar/Rechazar) sobre las tareas de los demás.

@@ -84,7 +84,7 @@ class TaskCatalogPage extends ConsumerWidget {
                           leading: TaskIcon(iconName: task.iconName),
                           title: Text(task.name),
                           subtitle: Text(
-                            '${task.points} puntos · ${task.isActive ? 'Activa' : 'Inactiva'}',
+                            '${task.points} puntos · ${task.isActive ? 'Activa' : 'Inactiva'} · ${task.isDailyLimited ? 'Una vez al día' : 'Repetible'}',
                             style: TextStyle(
                               color: task.isActive
                                   ? const Color(0xFF91D5C6)

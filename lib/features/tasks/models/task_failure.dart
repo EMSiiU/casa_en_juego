@@ -7,6 +7,11 @@ class TaskFailure implements Exception {
   static String messageFor(Object error, {bool submitting = false}) {
     if (error is TaskFailure) return error.message;
     if (error is PostgrestException) {
+      if (error.message.contains('TASK_DAILY_LIMIT_REACHED') ||
+          (error.code == '23505' &&
+              error.message.contains('task_logs_daily_limit'))) {
+        return 'Ya enviaste esta tarea hoy. Podrás repetirla mañana o si se rechaza.';
+      }
       if (error.code == 'P0001') {
         return 'El ciclo terminó o la tarea ya no está disponible. Actualiza el inicio.';
       }
@@ -19,6 +24,7 @@ class TaskFailure implements Exception {
         'PGRST200',
         'PGRST204',
         'PGRST205',
+        'PGRST202',
       ].contains(error.code)) {
         return 'La base de datos no coincide con la configuración de la app. Habla con el administrador.';
       }

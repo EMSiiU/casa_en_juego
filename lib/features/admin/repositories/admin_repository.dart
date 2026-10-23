@@ -19,7 +19,8 @@ class SupabaseAdminRepository implements AdminRepository {
   SupabaseAdminRepository(this._client);
   final SupabaseClient _client;
   static const _seasonColumns = 'id, name, start_date, end_date, status';
-  static const _taskColumns = 'id, name, points, icon_name, is_active';
+  static const _taskColumns =
+      'id, name, points, icon_name, is_active, is_daily_limited';
 
   @override
   Future<AdminDashboard> loadDashboard() async {

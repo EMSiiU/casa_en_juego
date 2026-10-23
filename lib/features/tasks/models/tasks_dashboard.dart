@@ -1,18 +1,21 @@
 import 'household_task.dart';
 import 'season.dart';
 import 'task_log.dart';
+import 'task_submission_status.dart';
 
 class TasksDashboard {
   TasksDashboard({
     required this.season,
     required List<HouseholdTask> tasks,
     required List<TaskLog> logs,
+    this.submissionStatus,
   }) : tasks = List.unmodifiable(tasks),
        logs = List.unmodifiable(logs);
 
   final Season? season;
   final List<HouseholdTask> tasks;
   final List<TaskLog> logs;
+  final TaskSubmissionStatus? submissionStatus;
 
   // Se filtra por ciclo incluso cuando el repositorio ya aplica ese filtro.
   Iterable<TaskLog> get _currentLogs =>

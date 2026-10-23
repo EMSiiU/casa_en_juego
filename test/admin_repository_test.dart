@@ -125,6 +125,7 @@ void main() {
       'points': 12,
       'icon_name': 'broom',
       'is_active': false,
+      'is_daily_limited': false,
     });
     expect(requests.last.uri.queryParameters['id'], 'eq.task-id');
   });

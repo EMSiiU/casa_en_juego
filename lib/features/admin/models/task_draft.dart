@@ -6,7 +6,13 @@ enum TaskIconOption {
   bathtub('Baño'),
   trash('Basura'),
   droplets('Gotas'),
-  window('Ventana');
+  window('Ventana'),
+  bed('Cama'),
+  shelf('Estante'),
+  sneakers('Tenis'),
+  clothes('Ropa'),
+  siblingItems('Cosas de mis hermanos'),
+  personalItems('Mis cosas');
 
   const TaskIconOption(this.label);
   final String label;
@@ -18,6 +24,7 @@ class TaskDraft {
     required this.points,
     required this.iconName,
     required this.isActive,
+    this.isDailyLimited = false,
   }) : name = name.trim() {
     if (this.name.isEmpty || this.name.length > 100) {
       throw const AdminFailure(
@@ -37,10 +44,12 @@ class TaskDraft {
   final int points;
   final String iconName;
   final bool isActive;
+  final bool isDailyLimited;
   Map<String, dynamic> toJson() => {
     'name': name,
     'points': points,
     'icon_name': iconName,
     'is_active': isActive,
+    'is_daily_limited': isDailyLimited,
   };
 }

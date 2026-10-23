@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/router/app_navigation_bar.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../auth/providers/auth_providers.dart';
+import '../../auth/presentation/widgets/account_menu.dart';
 import '../models/review_decision.dart';
 import '../models/review_failure.dart';
 import '../providers/reviews_providers.dart';
@@ -27,7 +27,6 @@ class ReviewsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final inbox = ref.watch(reviewsInboxProvider);
     final action = ref.watch(reviewActionProvider);
-    final name = ref.watch(currentUserProvider).asData?.value?.name ?? '';
     final count = inbox.asData?.value.length;
     return Scaffold(
       appBar: AppBar(
@@ -49,13 +48,7 @@ class ReviewsPage extends ConsumerWidget {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 20),
-            child: CircleAvatar(
-              backgroundColor: const Color(0xFF39334F),
-              child: Text(
-                name.characters.take(2).toString().toUpperCase(),
-                style: const TextStyle(color: Colors.white, fontSize: 13),
-              ),
-            ),
+            child: const AccountMenu(),
           ),
         ],
       ),

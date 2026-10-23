@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/router/app_navigation_bar.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../auth/presentation/widgets/account_menu.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../../tasks/presentation/widgets/task_icon.dart';
 import '../models/leaderboard_data.dart';
@@ -68,13 +69,7 @@ class _LeaderboardPageState extends ConsumerState<LeaderboardPage> {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 20),
-            child: CircleAvatar(
-              backgroundColor: const Color(0xFF39334F),
-              child: Text(
-                (user?.name ?? '').characters.take(2).toString().toUpperCase(),
-                style: const TextStyle(color: Colors.white, fontSize: 13),
-              ),
-            ),
+            child: const AccountMenu(),
           ),
         ],
       ),

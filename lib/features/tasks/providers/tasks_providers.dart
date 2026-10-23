@@ -61,6 +61,11 @@ class TaskSubmissionController extends AsyncNotifier<void> {
           'El ciclo o la tarea ya no están disponibles. Actualiza el inicio.',
         );
       }
+      if (dashboard.submissionStatus?.isBlocked(taskId) == true) {
+        throw const TaskFailure(
+          'Ya enviaste esta tarea hoy. Podrás repetirla mañana o si se rechaza.',
+        );
+      }
       await ref
           .read(tasksRepositoryProvider)
           .submitTask(userId: user.id, taskId: taskId, seasonId: seasonId);
