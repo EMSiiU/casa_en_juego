@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -7,6 +9,7 @@ import '../../auth/providers/auth_providers.dart';
 import '../models/profile_failure.dart';
 import '../models/profile_state.dart';
 import '../repositories/profile_repository.dart';
+import '../../notifications/providers/notification_providers.dart';
 
 final profileRepositoryProvider = Provider<ProfileRepository>(
   (ref) => SupabaseProfileRepository(ref.watch(supabaseClientProvider)),
@@ -22,14 +25,23 @@ class ProfileController extends AsyncNotifier<ProfileState> {
 
   @override
   Future<ProfileState> build() async {
-    _generation++;
+    final generation = ++_generation;
     final user = ref.watch(currentUserProvider).asData?.value;
     final repository = ref.watch(profileRepositoryProvider);
     if (user == null) {
       throw const ProfileFailure('Inicia sesión para ver tu perfil.');
     }
     try {
-      return ProfileState(user: await repository.loadProfile(user.id));
+      final loaded = await repository.loadProfile(user.id);
+      if (ref.mounted &&
+          generation == _generation &&
+          ref.read(currentUserProvider).asData?.value?.id == user.id) {
+        final session = ref.read(notificationSessionProvider);
+        if (session != null) {
+          unawaited(session.syncUser(loaded, requestPermission: false));
+        }
+      }
+      return ProfileState(user: loaded);
     } catch (error) {
       _logFailure(error);
       rethrow;
@@ -60,6 +72,7 @@ class ProfileController extends AsyncNotifier<ProfileState> {
         return;
       }
       state = AsyncData(ProfileState(user: saved));
+      await ref.read(notificationSessionProvider)?.syncUser(saved);
     } catch (error) {
       if (!ref.mounted ||
           generation != _generation ||

@@ -9,6 +9,7 @@ import '../../auth/providers/auth_providers.dart';
 import '../models/profile_failure.dart';
 import '../models/profile_state.dart';
 import '../providers/profile_providers.dart';
+import '../../notifications/presentation/notification_status_tile.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({super.key});
@@ -265,6 +266,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                           .read(profileProvider.notifier)
                           .setNotifications(enabled),
               ),
+              NotificationStatusTile(user: user),
             ],
           ),
         ),

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "910020789601",
+    "project_id": "casaenjuego",
+    "storage_bucket": "casaenjuego.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:910020789601:android:d2348ac2bccade7a55f120",
+        "android_client_info": {
+          "package_name": "com.example.casa_en_juego"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDu9RkZxUyqW071cI0kE5hGbEwtoqA9umQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

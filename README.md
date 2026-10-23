@@ -1,5 +1,7 @@
 # casa_en_juego
 
+La activación de notificaciones móviles con Supabase y FCM está documentada en [la guía de configuración](docs/push_notifications_setup.md). Incluye la migración SQL, los secretos del servidor, el despliegue y la prueba con dos usuarios.
+
 A new Flutter project.
 
 ## Getting Started

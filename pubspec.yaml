@@ -1,4 +1,4 @@
-﻿name: casa_en_juego
+name: casa_en_juego
 description: "Aplicación familiar para registrar tareas y competir por ciclos."
 publish_to: 'none'
 version: 1.0.0+1
@@ -13,6 +13,8 @@ dependencies:
   go_router: 18.1.1
   supabase_flutter: 2.18.3
   fl_chart: 1.3.0
+  firebase_core: 5.0.0
+  firebase_messaging: 17.0.0
 
 dev_dependencies:
   flutter_test:

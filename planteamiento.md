@@ -9,7 +9,7 @@ Aplicación móvil multiplataforma (iOS y Android) diseñada para un grupo famil
 * **Frontend:** Flutter (Dart). Framework de código abierto.
 * **Backend / Base de Datos:** Supabase (PostgreSQL). Plataforma Backend-as-a-Service Open Source.
 * **Autenticación:** Supabase Auth (Email / Contraseña).
-* **Notificaciones Push:** Supabase Edge Functions + Firebase Cloud Messaging (FCM) o OneSignal.
+* **Notificaciones Push:** Supabase Edge Functions + Firebase Cloud Messaging (FCM). Activación externa y pruebas de entrega en `docs/push_notifications_setup.md`.
 * **Gráficos:** Paquete `fl_chart` para visualización de progreso en barra horizontal.
 
 ## 3. Modelo de Datos (Esquema Relacional - Supabase)
@@ -49,6 +49,14 @@ Aplicación móvil multiplataforma (iOS y Android) diseñada para un grupo famil
 * `resolved_at` (Timestamptz, Nullable) -> Fecha en que se aprobó/rechazó.
 
 ## 4. Requerimientos Funcionales
+
+### Soporte de notificaciones
+
+* `push_devices`: identificador de dispositivo registrado (FID de FCM), propietario, plataforma y fecha de actualización. Registro y desvinculación mediante RPC autenticadas; sin acceso directo de los clientes a la tabla.
+* `push_jobs`: cola de avisos por dispositivo y evento de `task_logs`, con estado, intentos y arrendamiento de procesamiento. Solo el servidor puede consultar y procesar la cola.
+* Al enviar una tarea, se avisa a los demás miembros con dispositivos registrados y preferencia activa. Al aprobar o rechazar, se avisa al solicitante. La preferencia se verifica al generar y al entregar.
+* Las notificaciones abren Revisiones o Mi actividad. Los avisos de otra cuenta se descartan en Flutter; cerrar sesión revoca el registro del dispositivo. En primer plano las alertas duran tres segundos.
+* La cola permite reintentos sin depender de que el usuario mantenga abierta la app. La entrega Android/iOS requiere configurar Firebase y desplegar la Edge Function; push web queda fuera de esta integración móvil.
 
 1. **Autenticación Cerrada:** El administrador crea las cuentas en el dashboard de Supabase. Los usuarios inician sesión con correo y contraseña.
 2. **Registro de Tareas:** Un usuario selecciona una tarea. El sistema crea un `task_log` `pending` (hora del servidor). Los puntos no se suman hasta ser aprobados.
@@ -110,6 +118,7 @@ lib/
 │   ├── leaderboard/            # Pantalla 'Ranking', podio y gráficas horizontales
 │   ├── reviews/                # Pantalla 'Revisiones' (bandeja de entrada)
 │   ├── profile/                # Pantalla 'Perfil' y toggle de notificaciones
+│   ├── notifications/          # Permisos, registro de dispositivos y recepción de avisos
 │   └── admin/                  # Pantallas 'Cuidar del equipo', 'Gestionar tareas', 'Editar tarea', 'Cierre/Inicio de ciclo'
 └── main.dart
 ```
