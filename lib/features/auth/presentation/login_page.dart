@@ -69,7 +69,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         const _HouseIllustration(),
                         const SizedBox(height: 32),
                         Text(
-                          'Una casa limpia.\nUn equipo que suma.',
+                          'Tu casa,\n nuestro equipo.',
                           style: Theme.of(context).textTheme.headlineLarge
                               ?.copyWith(
                                 fontWeight: FontWeight.w700,
@@ -98,8 +98,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           ],
                           autocorrect: false,
                           decoration: const InputDecoration(
-                            hintText: 'ana@familia.es',
                             suffixIcon: Icon(Icons.mail_outline),
+                            hintText: 'nombre@correo.com',
                           ),
                           validator: (value) {
                             final email = value?.trim() ?? '';
@@ -185,26 +185,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.lock_outline,
-                              size: 13,
-                              color: AppTheme.secondaryText,
-                            ),
-                            SizedBox(width: 5),
-                            Flexible(
-                              child: Text(
-                                'Solo para tu familia · Sin registro público',
-                                style: TextStyle(
-                                  color: AppTheme.secondaryText,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
                       ],
                     ),
                   ),
