@@ -53,3 +53,7 @@ supabase/.temp/
 **/*service-account*.json
 **/firebase-adminsdk*.json
 /supabase/tests/node_modules/
+
+# Caché local de Firebase Hosting.
+.firebase/
+firebase-debug.log*
