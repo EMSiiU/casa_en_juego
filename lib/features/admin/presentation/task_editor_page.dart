@@ -11,6 +11,54 @@ import '../models/task_draft.dart';
 import '../providers/admin_providers.dart';
 import 'widgets/admin_scaffold.dart';
 
+typedef _TaskFormData = ({
+  String name,
+  String points,
+  String iconName,
+  bool isActive,
+  bool isDailyLimited,
+  String? validationError,
+});
+
+final _taskFormProvider = NotifierProvider.autoDispose
+    .family<_TaskFormController, _TaskFormData, (Object, HouseholdTask?)>(
+      _TaskFormController.new,
+    );
+
+class _TaskFormController extends Notifier<_TaskFormData> {
+  _TaskFormController((Object, HouseholdTask?) form) : _initialTask = form.$2;
+
+  final HouseholdTask? _initialTask;
+
+  @override
+  _TaskFormData build() => (
+    name: _initialTask?.name ?? '',
+    points: _initialTask?.points.toString() ?? '',
+    iconName: _initialTask?.iconName ?? 'broom',
+    isActive: _initialTask?.isActive ?? true,
+    isDailyLimited: _initialTask?.isDailyLimited ?? false,
+    validationError: null,
+  );
+
+  void update({
+    String? name,
+    String? points,
+    String? iconName,
+    bool? isActive,
+    bool? isDailyLimited,
+    String? validationError,
+  }) {
+    state = (
+      name: name ?? state.name,
+      points: points ?? state.points,
+      iconName: iconName ?? state.iconName,
+      isActive: isActive ?? state.isActive,
+      isDailyLimited: isDailyLimited ?? state.isDailyLimited,
+      validationError: validationError,
+    );
+  }
+}
+
 class TaskEditorPage extends ConsumerWidget {
   const TaskEditorPage({super.key, this.taskId});
   final String? taskId;
@@ -48,49 +96,26 @@ class _TaskForm extends ConsumerStatefulWidget {
 
 class _TaskFormState extends ConsumerState<_TaskForm> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _nameController;
-  late final TextEditingController _pointsController;
-  late String _iconName;
-  late bool _isActive;
-  late bool _isDailyLimited;
-  String? _validationError;
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController(
-      text: widget.initialTask?.name ?? '',
-    );
-    _pointsController = TextEditingController(
-      text: widget.initialTask?.points.toString() ?? '',
-    );
-    _iconName = widget.initialTask?.iconName ?? 'broom';
-    _isActive = widget.initialTask?.isActive ?? true;
-    _isDailyLimited = widget.initialTask?.isDailyLimited ?? false;
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _pointsController.dispose();
-    super.dispose();
-  }
+  late final _formProvider = _taskFormProvider((Object(), widget.initialTask));
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    final form = ref.read(_formProvider);
+    final controller = ref.read(_formProvider.notifier);
     TaskDraft draft;
     try {
       draft = TaskDraft(
-        name: _nameController.text,
-        points: int.parse(_pointsController.text),
-        iconName: _iconName,
-        isActive: _isActive,
-        isDailyLimited: _isDailyLimited,
+        name: form.name,
+        points: int.parse(form.points),
+        iconName: form.iconName,
+        isActive: form.isActive,
+        isDailyLimited: form.isDailyLimited,
       );
     } on AdminFailure catch (error) {
-      setState(() => _validationError = error.message);
+      controller.update(validationError: error.message);
       return;
     }
-    setState(() => _validationError = null);
+    controller.update();
     FocusScope.of(context).unfocus();
     final saved = await ref
         .read(adminActionProvider.notifier)
@@ -114,6 +139,8 @@ class _TaskFormState extends ConsumerState<_TaskForm> {
   @override
   Widget build(BuildContext context) {
     final action = ref.watch(adminActionProvider);
+    final form = ref.watch(_formProvider);
+    final controller = ref.read(_formProvider.notifier);
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       children: [
@@ -126,23 +153,21 @@ class _TaskFormState extends ConsumerState<_TaskForm> {
                 margin: EdgeInsets.zero,
                 color: const Color(0xFF39334F),
                 child: ListTile(
-                  leading: TaskIcon(iconName: _iconName),
+                  leading: TaskIcon(iconName: form.iconName),
                   title: Text(
-                    _nameController.text.trim().isEmpty
-                        ? 'Tu nueva tarea'
-                        : _nameController.text,
+                    form.name.trim().isEmpty ? 'Tu nueva tarea' : form.name,
                   ),
                   subtitle: Text(
-                    '${_pointsController.text.isEmpty ? '0' : _pointsController.text} puntos · ${_isActive ? 'Activa' : 'Inactiva'}',
+                    '${form.points.isEmpty ? '0' : form.points} puntos · ${form.isActive ? 'Activa' : 'Inactiva'}',
                   ),
                 ),
               ),
               const SizedBox(height: 24),
               TextFormField(
-                controller: _nameController,
+                initialValue: widget.initialTask?.name,
                 enabled: !action.isBusy,
                 maxLength: 100,
-                onChanged: (_) => setState(() {}),
+                onChanged: (name) => controller.update(name: name),
                 decoration: const InputDecoration(
                   labelText: 'Nombre de la tarea',
                   counterText: '',
@@ -153,11 +178,11 @@ class _TaskFormState extends ConsumerState<_TaskForm> {
               ),
               const SizedBox(height: 16),
               TextFormField(
-                controller: _pointsController,
+                initialValue: widget.initialTask?.points.toString(),
                 enabled: !action.isBusy,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                onChanged: (_) => setState(() {}),
+                onChanged: (points) => controller.update(points: points),
                 decoration: const InputDecoration(
                   labelText: 'Puntos',
                   helperText: 'Valor que suma cada solicitud aprobada.',
@@ -180,19 +205,19 @@ class _TaskFormState extends ConsumerState<_TaskForm> {
                     Tooltip(
                       message: option.label,
                       child: Semantics(
-                        selected: _iconName == option.name,
+                        selected: form.iconName == option.name,
                         button: true,
                         label: option.label,
                         child: InkWell(
                           onTap: action.isBusy
                               ? null
-                              : () => setState(() => _iconName = option.name),
+                              : () => controller.update(iconName: option.name),
                           borderRadius: BorderRadius.circular(14),
                           child: Container(
                             padding: const EdgeInsets.all(3),
                             decoration: BoxDecoration(
                               border: Border.all(
-                                color: _iconName == option.name
+                                color: form.iconName == option.name
                                     ? AppTheme.primary
                                     : Colors.transparent,
                                 width: 2,
@@ -211,39 +236,40 @@ class _TaskFormState extends ConsumerState<_TaskForm> {
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Una vez al día'),
                 subtitle: Text(
-                  _isDailyLimited
+                  form.isDailyLimited
                       ? 'Se renueva a medianoche de Ciudad de México. Si se rechaza, se puede reenviar.'
                       : 'Se puede repetir varias veces al día.',
                 ),
-                value: _isDailyLimited,
+                value: form.isDailyLimited,
                 onChanged: action.isBusy
                     ? null
-                    : (value) => setState(() => _isDailyLimited = value),
+                    : (value) => controller.update(isDailyLimited: value),
               ),
               const SizedBox(height: 12),
               SwitchListTile.adaptive(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Tarea activa'),
-                value: _isActive,
+                value: form.isActive,
                 subtitle: Text(
-                  _isActive
+                  form.isActive
                       ? 'Disponible para registrar'
                       : 'Oculta del catálogo familiar',
                 ),
                 onChanged: action.isBusy
                     ? null
-                    : (value) => setState(() => _isActive = value),
+                    : (value) => controller.update(isActive: value),
               ),
               const SizedBox(height: 16),
               const AdminInfo(
                 'Si la desactivas, dejará de aparecer para registrar tareas. El historial se conserva. Cambiar puntos solo afecta a nuevas solicitudes.',
               ),
-              if (_validationError != null || action.errorMessage != null) ...[
+              if (form.validationError != null ||
+                  action.errorMessage != null) ...[
                 const SizedBox(height: 16),
                 Semantics(
                   liveRegion: true,
                   child: Text(
-                    _validationError ?? action.errorMessage!,
+                    form.validationError ?? action.errorMessage!,
                     style: const TextStyle(color: Color(0xFFF3A69B)),
                   ),
                 ),

@@ -6,6 +6,18 @@ import '../../../core/theme/app_theme.dart';
 import '../models/auth_failure.dart';
 import '../providers/auth_providers.dart';
 
+final _passwordVisibilityProvider =
+    NotifierProvider.autoDispose<_PasswordVisibility, bool>(
+      _PasswordVisibility.new,
+    );
+
+class _PasswordVisibility extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void toggle() => state = !state;
+}
+
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
@@ -17,7 +29,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -44,6 +55,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final action = ref.watch(authControllerProvider);
+    final showPassword = ref.watch(_passwordVisibilityProvider);
     return Scaffold(
       body: SafeArea(
         child: LayoutBuilder(
@@ -119,7 +131,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         TextFormField(
                           controller: _passwordController,
                           enabled: !action.isLoading,
-                          obscureText: _obscurePassword,
+                          obscureText: !showPassword,
                           autocorrect: false,
                           enableSuggestions: false,
                           autofillHints: const [AutofillHints.password],
@@ -128,18 +140,20 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           decoration: InputDecoration(
                             helperText: 'Toca el ojo para mostrar u ocultar.',
                             suffixIcon: IconButton(
-                              tooltip: _obscurePassword
-                                  ? 'Mostrar contraseña'
-                                  : 'Ocultar contraseña',
+                              tooltip: showPassword
+                                  ? 'Ocultar contraseña'
+                                  : 'Mostrar contraseña',
                               onPressed: action.isLoading
                                   ? null
-                                  : () => setState(() {
-                                      _obscurePassword = !_obscurePassword;
-                                    }),
+                                  : () => ref
+                                        .read(
+                                          _passwordVisibilityProvider.notifier,
+                                        )
+                                        .toggle(),
                               icon: Icon(
-                                _obscurePassword
-                                    ? Icons.visibility_outlined
-                                    : Icons.visibility_off_outlined,
+                                showPassword
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined,
                               ),
                             ),
                           ),
