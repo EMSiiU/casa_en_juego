@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/network/supabase_provider.dart';
 import '../models/app_user.dart';
 import '../repositories/auth_repository.dart';
+import '../repositories/oauth_sign_in.dart';
 import '../../notifications/providers/notification_providers.dart';
 import '../models/auth_failure.dart';
 
@@ -24,14 +26,20 @@ class AuthController extends AsyncNotifier<void> {
   @override
   void build() {}
 
-  Future<void> signIn({required String email, required String password}) async {
+  Future<void> signIn({required String email, required String password}) =>
+      _runSignIn(
+        () => ref
+            .read(authRepositoryProvider)
+            .signIn(email: email, password: password),
+      );
+
+  Future<void> signInWithProvider(OAuthProvider provider) =>
+      _runSignIn(() => ref.read(oauthSignInProvider)(provider));
+
+  Future<void> _runSignIn(Future<void> Function() action) async {
     if (state.isLoading) return;
     state = const AsyncLoading();
-    final result = await AsyncValue.guard(
-      () => ref
-          .read(authRepositoryProvider)
-          .signIn(email: email, password: password),
-    );
+    final result = await AsyncValue.guard(action);
     if (ref.mounted) state = result;
   }
 

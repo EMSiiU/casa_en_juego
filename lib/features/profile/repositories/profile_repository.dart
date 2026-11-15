@@ -20,7 +20,7 @@ class SupabaseProfileRepository implements ProfileRepository {
   Future<AppUser> loadProfile(String userId) async {
     final row = await _client
         .from('users')
-        .select(_columns)
+        .select()
         .eq('id', userId)
         .maybeSingle();
     if (row == null) {

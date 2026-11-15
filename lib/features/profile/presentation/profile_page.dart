@@ -52,6 +52,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   Widget build(BuildContext context) {
     final profile = ref.watch(profileProvider);
     final authAction = ref.watch(authControllerProvider);
+    final isHouseholdMember =
+        ref.watch(currentUserProvider).asData?.value?.isHouseholdMember ??
+        false;
     final isDark = ref.watch(themeModeProvider) == ThemeMode.dark;
     return Scaffold(
       appBar: AppBar(
@@ -168,7 +171,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           ),
         ),
       ),
-      bottomNavigationBar: const AppNavigationBar(selectedIndex: 3),
+      bottomNavigationBar: isHouseholdMember
+          ? const AppNavigationBar(selectedIndex: 3)
+          : null,
     );
   }
 
@@ -212,12 +217,26 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              user.isAdmin ? 'Administrador' : 'Miembro',
+              !user.isHouseholdMember
+                  ? 'Sin ciclo'
+                  : user.isAdmin
+                  ? 'Administrador'
+                  : 'Miembro',
               style: TextStyle(color: context.appColors.primary, fontSize: 11),
             ),
           ),
         ),
         const SizedBox(height: 28),
+        if (!user.isHouseholdMember)
+          const Card(
+            child: ListTile(
+              leading: Icon(Icons.home_outlined),
+              title: Text('Aún no tienes un ciclo'),
+              subtitle: Text(
+                'Tu cuenta ya está lista. La creación y el ingreso a ciclos estarán disponibles más adelante.',
+              ),
+            ),
+          ),
         if (user.isAdmin) ...[
           Card(
             margin: EdgeInsets.zero,
@@ -235,58 +254,62 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           ),
           const SizedBox(height: 16),
         ],
-        Card(
-          margin: EdgeInsets.zero,
-          child: Column(
-            children: [
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 4,
-                ),
-                leading: Icon(Icons.history, color: context.appColors.primary),
-                title: const Text('Mi actividad'),
-                subtitle: Text(
-                  'Tus solicitudes y sus resultados',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: context.appColors.onSurfaceVariant,
+        if (user.isHouseholdMember)
+          Card(
+            margin: EdgeInsets.zero,
+            child: Column(
+              children: [
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
                   ),
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: isSigningOut
-                    ? null
-                    : () => context.pushNamed(
-                        'activity',
-                        queryParameters: {'from': 'profile'},
-                      ),
-              ),
-              SwitchListTile.adaptive(
-                secondary: Icon(
-                  Icons.notifications_none,
-                  color: context.appColors.primary,
-                ),
-                title: const Text('Avisos de revisión'),
-                subtitle: Text(
-                  data.isSaving
-                      ? 'Guardando preferencia…'
-                      : 'Preferencia para solicitudes y decisiones',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: context.appColors.onSurfaceVariant,
+                  leading: Icon(
+                    Icons.history,
+                    color: context.appColors.primary,
                   ),
+                  title: const Text('Mi actividad'),
+                  subtitle: Text(
+                    'Tus solicitudes y sus resultados',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: context.appColors.onSurfaceVariant,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: isSigningOut
+                      ? null
+                      : () => context.pushNamed(
+                          'activity',
+                          queryParameters: {'from': 'profile'},
+                        ),
                 ),
-                value: user.notificationsEnabled,
-                onChanged: data.isSaving || isSigningOut
-                    ? null
-                    : (enabled) => ref
-                          .read(profileProvider.notifier)
-                          .setNotifications(enabled),
-              ),
-              NotificationStatusTile(user: user),
-            ],
+                SwitchListTile.adaptive(
+                  secondary: Icon(
+                    Icons.notifications_none,
+                    color: context.appColors.primary,
+                  ),
+                  title: const Text('Avisos de revisión'),
+                  subtitle: Text(
+                    data.isSaving
+                        ? 'Guardando preferencia…'
+                        : 'Preferencia para solicitudes y decisiones',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: context.appColors.onSurfaceVariant,
+                    ),
+                  ),
+                  value: user.notificationsEnabled,
+                  onChanged: data.isSaving || isSigningOut
+                      ? null
+                      : (enabled) => ref
+                            .read(profileProvider.notifier)
+                            .setNotifications(enabled),
+                ),
+                NotificationStatusTile(user: user),
+              ],
+            ),
           ),
-        ),
         if (data.errorMessage != null) ...[
           const SizedBox(height: 12),
           Semantics(
@@ -297,47 +320,49 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             ),
           ),
         ],
-        const SizedBox(height: 20),
-        Card(
-          margin: EdgeInsets.zero,
-          child: Padding(
-            padding: EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.verified_user_outlined,
-                      color: context.appColors.primary,
-                      size: 20,
+        if (user.isHouseholdMember) ...[
+          const SizedBox(height: 20),
+          Card(
+            margin: EdgeInsets.zero,
+            child: Padding(
+              padding: EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.verified_user_outlined,
+                        color: context.appColors.primary,
+                        size: 20,
+                      ),
+                      SizedBox(width: 10),
+                      Expanded(child: Text('Así sumamos en casa')),
+                    ],
+                  ),
+                  SizedBox(height: 14),
+                  Text(
+                    'Solo suman las tareas aprobadas del ciclo activo. Las pendientes y rechazadas no cuentan.',
+                    style: TextStyle(
+                      color: context.appColors.onSurfaceVariant,
+                      fontSize: 12,
+                      height: 1.5,
                     ),
-                    SizedBox(width: 10),
-                    Expanded(child: Text('Así sumamos en casa')),
-                  ],
-                ),
-                SizedBox(height: 14),
-                Text(
-                  'Solo suman las tareas aprobadas del ciclo activo. Las pendientes y rechazadas no cuentan.',
-                  style: TextStyle(
-                    color: context.appColors.onSurfaceVariant,
-                    fontSize: 12,
-                    height: 1.5,
                   ),
-                ),
-                SizedBox(height: 12),
-                Text(
-                  'No puedes aprobar tus propias tareas. Cada nuevo ciclo empieza una nueva clasificación.',
-                  style: TextStyle(
-                    color: context.appColors.onSurfaceVariant,
-                    fontSize: 12,
-                    height: 1.5,
+                  SizedBox(height: 12),
+                  Text(
+                    'No puedes aprobar tus propias tareas. Cada nuevo ciclo empieza una nueva clasificación.',
+                    style: TextStyle(
+                      color: context.appColors.onSurfaceVariant,
+                      fontSize: 12,
+                      height: 1.5,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
+        ],
       ],
     );
   }

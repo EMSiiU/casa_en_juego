@@ -2,11 +2,25 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/app_user.dart';
 import '../models/auth_failure.dart';
+import 'password_recovery.dart';
 
 abstract interface class AuthRepository {
   Stream<AppUser?> watchUser();
   Future<void> signIn({required String email, required String password});
   Future<void> signOut();
+  Future<void> signUp({
+    required String name,
+    required String email,
+    required String password,
+  });
+  Future<void> resendSignUpCode(String email);
+  Future<void> confirmEmail({required String email, required String code});
+  Future<void> requestPasswordReset(String email);
+  Future<void> resetPassword({
+    required String email,
+    required String code,
+    required String password,
+  });
 }
 
 class SupabaseAuthRepository implements AuthRepository {
@@ -19,23 +33,31 @@ class SupabaseAuthRepository implements AuthRepository {
     // Supabase emite initialSession al suscribirse y restaura la sesión local.
     // Los refrescos de token no vuelven a consultar el mismo perfil.
     return _client.auth.onAuthStateChange
-        .map((event) => event.session?.user.id)
+        .map((event) {
+          final user = event.session?.user;
+          return user != null && user.emailConfirmedAt != null ? user.id : null;
+        })
         .distinct()
         .asyncMap((userId) async {
           if (userId == null) return null;
-          final data = await _client
-              .from('users')
-              .select('id, name, email, role, notifications_enabled')
-              .eq('id', userId)
-              .maybeSingle();
+          var data = await _loadProfile(userId);
+          if (data == null) {
+            await _client.rpc('ensure_personal_profile');
+            data = await _loadProfile(userId);
+          }
           if (data == null) {
             throw const AuthFailure(
-              'Tu cuenta no tiene un perfil familiar. Habla con el administrador.',
+              'No pudimos cargar tu perfil. Intenta de nuevo.',
             );
           }
           return AppUser.fromJson(data);
         });
   }
+
+  // Fetch the full personal row to keep existing sessions usable before the
+  // personal accounts migration adds is_household_member.
+  Future<Map<String, dynamic>?> _loadProfile(String id) =>
+      _client.from('users').select().eq('id', id).maybeSingle();
 
   @override
   Future<void> signIn({required String email, required String password}) async {
@@ -48,7 +70,67 @@ class SupabaseAuthRepository implements AuthRepository {
         'No se pudo iniciar la sesión. Inténtalo de nuevo.',
       );
     }
+    if (response.user?.emailConfirmedAt == null) {
+      await signOut();
+      throw const AuthFailure('Confirma tu correo para entrar.');
+    }
   }
+
+  @override
+  Future<void> signUp({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    final response = await _client.auth.signUp(
+      email: email,
+      password: password,
+      data: {'name': name},
+    );
+    if (response.session != null) {
+      await signOut();
+      throw const AuthFailure(
+        'El registro necesita la confirmación de correo activada.',
+      );
+    }
+  }
+
+  @override
+  Future<void> resendSignUpCode(String email) async {
+    await _client.auth.resend(type: OtpType.signup, email: email);
+  }
+
+  @override
+  Future<void> confirmEmail({
+    required String email,
+    required String code,
+  }) async {
+    final response = await _client.auth.verifyOTP(
+      email: email,
+      token: code,
+      type: OtpType.email,
+    );
+    if (response.session == null) {
+      throw const AuthFailure(
+        'No se abrió una sesión. Si el correo ya está confirmado, inicia sesión.',
+      );
+    }
+  }
+
+  @override
+  Future<void> requestPasswordReset(String email) =>
+      const PasswordRecovery().sendCode(email);
+
+  @override
+  Future<void> resetPassword({
+    required String email,
+    required String code,
+    required String password,
+  }) => const PasswordRecovery().reset(
+    email: email,
+    code: code,
+    password: password,
+  );
 
   @override
   Future<void> signOut() => _client.auth.signOut(scope: SignOutScope.local);

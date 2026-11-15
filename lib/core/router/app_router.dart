@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/activity/presentation/activity_page.dart';
 
 import '../../features/auth/presentation/login_page.dart';
+import '../../features/auth/presentation/email_account_page.dart';
 import '../../features/auth/presentation/session_page.dart';
 import '../../features/auth/providers/auth_providers.dart';
 import '../../features/tasks/presentation/tasks_page.dart';
@@ -24,18 +25,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final user = ref.read(currentUserProvider);
       final path = state.uri.path;
+      final isEmailPage =
+          path == '/login' || path == '/registro' || path == '/recuperar';
       // No se muestran rutas protegidas mientras se restaura o valida el perfil.
       if (user.isLoading || user.hasError) {
         return path == '/session' ? null : '/session';
       }
       if (user.asData?.value == null) {
-        return path == '/login' ? null : '/login';
+        return isEmailPage ? null : '/login';
+      }
+      if (user.asData?.value?.isHouseholdMember == false) {
+        return path == '/profile' ? null : '/profile';
       }
       if ((path == '/admin' || path.startsWith('/admin/')) &&
           user.asData?.value?.isAdmin != true) {
         return '/profile';
       }
-      if (path == '/login' || path == '/session' || path == '/') {
+      if (isEmailPage || path == '/session' || path == '/') {
         return '/tasks';
       }
       return null;
@@ -86,6 +92,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/login',
         name: 'login',
         builder: (context, state) => const LoginPage(),
+      ),
+      GoRoute(
+        path: '/registro',
+        builder: (context, state) => EmailAccountPage(
+          recovery: false,
+          initialEmail: state.extra as String?,
+        ),
+      ),
+      GoRoute(
+        path: '/recuperar',
+        builder: (context, state) => EmailAccountPage(
+          recovery: true,
+          initialEmail: state.extra as String?,
+        ),
       ),
       GoRoute(
         path: '/session',

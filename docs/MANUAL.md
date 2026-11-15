@@ -7,10 +7,11 @@ registra una tarea, otro confirma o rechaza el trabajo y el ranking muestra
 los puntos de las tareas aprobadas en el ciclo activo. La administración
 define el catálogo y los ciclos. Mi actividad conserva el historial personal.
 
-El alcance actual es un solo grupo de miembros con cuentas creadas en Supabase.
-Para la entrega del domingo 22 de noviembre de 2026 se usa como referencia la
-rúbrica de Desarrollo Móvil. La consulta del miércoles 18 define qué servicios
-Firebase deben integrarse y cómo se evaluarán el mapa y el pago.
+El alcance actual es un grupo familiar con acceso para sus miembros originales.
+También hay un flujo de registro de cuentas personales desde la aplicación.
+El maestro aprobó usar Supabase para datos y autenticación, y Firebase para
+avisos. La entrega es el domingo 22 de noviembre de 2026. El mapa y el pago
+siguen pendientes.
 
 ## 2. Arquitectura y tecnologías
 
@@ -55,12 +56,13 @@ las interfaces de repositorio por implementaciones de prueba.
    `AuthController.signIn()`. El controlador usa `AsyncValue` para deshabilitar
    envíos simultáneos y mostrar errores recuperables.
 2. `SupabaseAuthRepository.signIn()` llama a `signInWithPassword()`.
-   `watchUser()` observa los cambios de sesión y obtiene el perfil asociado.
-   `currentUserProvider` expone el resultado a la app.
+   `watchUser()` observa los cambios de sesión, exige un correo confirmado y
+   carga el perfil asociado. Si el perfil todavía no existe, llama a la RPC
+   `ensure_personal_profile()`. `currentUserProvider` expone el resultado.
 3. El router lleva al usuario a `/session` mientras se valida el perfil, a
-   `/login` si no hay sesión y a `/tasks` después del acceso. Las rutas
-   `/admin` requieren rol de administrador. Las políticas SQL también
-   verifican el rol al escribir.
+   `/login` si no hay sesión, a `/tasks` para miembros del hogar y a
+   `/profile` para cuentas personales sin ciclo. Registro y recuperación
+   son rutas públicas. Las rutas `/admin` requieren rol de administrador.
 4. `ProfileController.setNotifications()` actualiza la preferencia guardada en
    PostgreSQL y sincroniza el estado de avisos. Perfil muestra nombre, correo,
    rol, iniciales y acceso a Mi actividad.
@@ -71,6 +73,131 @@ las interfaces de repositorio por implementaciones de prueba.
 Enlaces de estudio: [controlador de acceso](../lib/features/auth/providers/auth_providers.dart),
 [controlador de perfil](../lib/features/profile/providers/profile_providers.dart)
 y [pantalla de perfil](../lib/features/profile/presentation/profile_page.dart).
+
+### Registro, confirmación y recuperación por correo
+
+[EmailAccountPage](../lib/features/auth/presentation/email_account_page.dart)
+usa [EmailAccountController](../lib/features/auth/providers/email_account_provider.dart)
+para indicar el paso actual, bloquear envíos duplicados y presentar errores.
+`signUp()` envía el nombre y las credenciales a Supabase Auth.
+`resendSignUpCode()` reenvía la confirmación. `confirmEmail()` valida el
+código de un solo uso y abre la sesión. El formulario valida el correo,
+ocho caracteres de contraseña como mínimo y coincidencia entre las dos entradas.
+
+```mermaid
+flowchart LR
+    Signup["Crear cuenta"] --> Mail["Código en el correo"]
+    Mail --> Verify["confirmEmail"]
+    Verify --> Auth["Sesión con correo confirmado"]
+    Auth --> RPC["ensure_personal_profile"]
+    RPC --> Profile["Perfil personal sin ciclo"]
+    Recovery["Olvidé mi contraseña"] --> ResetCode["Código de recuperación"]
+    ResetCode --> Update["Establecer nueva contraseña"]
+    Update --> Login["Iniciar sesión con la nueva contraseña"]
+```
+
+La [migración de cuentas personales](../supabase/migrations/20261114000100_add_personal_accounts.sql)
+marca como miembros los perfiles existentes y hace que los nuevos nazcan sin
+membresía. La RPC toma el identificador y correo de Supabase Auth. El cliente
+puede proponer un nombre, pero la base decide el rol. Las políticas RLS solo
+dejan que una cuenta personal vea su propio perfil. El grupo existente
+mantiene su acceso a datos y sus permisos de administrador.
+
+[PasswordRecovery](../lib/features/auth/repositories/password_recovery.dart)
+pide el código a Auth, lo valida con tipo `recovery` y usa la sesión temporal
+para cambiar la contraseña. Esas peticiones se hacen aparte del cliente que
+mantiene la sesión de la app, para que el código de recuperación no inicie
+sesión ni sincronice una sesión temporal entre pestañas. Al terminar se
+solicita el cierre de esa sesión y la interfaz vuelve al acceso normal.
+
+#### Activación en Supabase
+
+1. Aplicar la migración de cuentas personales en SQL Editor sobre la base
+   existente. Ejecutar solo esa migración para este cambio.
+2. En **Authentication → Emails → Templates**, editar **Confirm signup** y
+   **Reset password** para que incluyan el código de un solo uso
+   `{{ .Token }}`, con la indicación de copiarlo en Casa en Juego. Para este
+   flujo se usa el código en lugar del enlace predeterminado
+   `{{ .ConfirmationURL }}`.
+3. En **Authentication → Emails**, revisar si está habilitado el SMTP
+   personalizado. El envío integrado de Supabase solo entrega a direcciones
+   autorizadas del equipo del proyecto. Para correos de la familia o de
+   evaluadores, configurar un SMTP propio.
+4. En la configuración del proveedor de correo, mantener activada la
+   confirmación de correo y después habilitar el registro de usuarios nuevos.
+5. En Android o web, crear una cuenta de prueba, verificar que se pueda
+   reenviar y confirmar el código, comprobar que solo abra Perfil y probar
+   que la contraseña anterior falle y la nueva funcione después de recuperarla.
+   Repetir el acceso con una cuenta familiar previa para comprobar su permiso.
+
+Referencias: [plantillas de correo de Supabase](https://supabase.com/docs/guides/auth/auth-email-templates)
+y [configuración SMTP](https://supabase.com/docs/guides/auth/auth-smtp).
+
+### Acceso con Google y GitHub
+
+[SocialSignInButtons](../lib/features/auth/presentation/widgets/social_sign_in_buttons.dart)
+muestra ambos proveedores en el login. `AuthController.signInWithProvider()`
+comparte el estado de carga con el acceso por correo. El
+[lanzador OAuth](../lib/features/auth/repositories/oauth_sign_in.dart) abre el
+navegador con `signInWithOAuth()`. Al abrirse el navegador la app todavía
+espera la sesión de Supabase. Al volver, el SDK intercambia el código
+mediante PKCE y `watchUser()` carga el perfil. Una cuenta nueva llega a
+Perfil sin ciclo. Supabase puede vincular proveedores a la misma cuenta si
+comparten un correo verificado.
+
+```mermaid
+sequenceDiagram
+    actor U as Usuario
+    participant A as Casa en Juego
+    participant S as Supabase Auth
+    participant P as Google o GitHub
+    U->>A: Elige proveedor
+    A->>S: Inicia OAuth con PKCE
+    S->>P: Abre autorización en el navegador
+    P-->>S: Retorno al callback HTTPS de Supabase
+    S-->>A: Redirige a la app con un código
+    A->>S: El SDK intercambia el código
+    S-->>A: Emite sesión y carga el perfil
+```
+
+#### Activar los proveedores
+
+1. Aplica la migración de cuentas personales descrita arriba. En Supabase,
+   abre **Authentication → Sign In / Providers**. Copia la **Callback URL**
+   del proveedor. Tiene el formato
+   `https://<referencia-del-proyecto>.supabase.co/auth/v1/callback`.
+   Mantén activa la opción **Allow new users to sign up** si vas a probar
+   con una cuenta que todavía no existe en Supabase Auth.
+2. En **Google Cloud**, crea o usa un cliente OAuth de tipo **Aplicación
+   web** y registra esa URL en **Authorized redirect URIs**. Si la pantalla
+   de consentimiento está restringida a usuarios de prueba, agrega las
+   cuentas que usarán la demo. En **GitHub → Developer settings → OAuth
+   Apps**, registra la misma URL en **Authorization callback URL**.
+3. En **Authentication → Sign In / Providers**, habilita Google y GitHub y
+   pega el **Client ID** y el **Client Secret** de cada uno. El secreto se
+   configura en Supabase. Flutter usa la clave publicable del proyecto.
+4. En **Authentication → URL Configuration**, agrega a **Redirect URLs**
+   los destinos que vas a usar. Son las direcciones de regreso que acepta
+   Supabase después de autenticar con el proveedor.
+   - Android e iOS: `casaenjuego://auth/callback`.
+   - Web publicada: `https://casaenjuego.web.app/`.
+   - Chrome local: `http://localhost:8080/`. Inicia Flutter con
+     `flutter run -d chrome --web-port=8080`.
+5. Recompila o reinicia Android después del cambio de manifiesto. Prueba un
+   acceso por proveedor y vuelve a la app. Comprueba que una cuenta nueva
+   llegue a Perfil sin ciclo y una cuenta familiar existente conserve su
+   acceso al iniciar sesión con el mismo correo verificado. Comprueba
+   también que puedas volver al login si cancelas en el navegador.
+
+El callback de Google y GitHub apunta al servidor de Supabase. La URL
+`casaenjuego://auth/callback` abre la app móvil y está registrada en
+[AndroidManifest.xml](../android/app/src/main/AndroidManifest.xml) y
+[Info.plist](../ios/Runner/Info.plist). En web, el retorno usa el mismo
+origen donde se inició OAuth.
+
+[Configuración de Google](https://supabase.com/docs/guides/auth/social-sign-in/auth-google)
+· [Configuración de GitHub](https://supabase.com/docs/guides/auth/social-sign-in/auth-github)
+· [URL de retorno en Supabase](https://supabase.com/docs/guides/auth/redirect-urls).
 
 ## 4. Tareas, revisiones, historial y ranking
 
@@ -238,7 +365,7 @@ global, la familia tipográfica y la restauración del valor guardado.
 | Firebase Database y sincronización | Parcial. PostgreSQL guarda los datos y Flutter refresca las consultas al cambiar el estado, navegar o recibir avisos. Pendiente una suscripción a cambios de datos y la decisión del maestro sobre Supabase, Realtime Database o Firestore. |
 | Firebase Storage y caché local de imágenes | Pendiente. Perfil usa iniciales y el catálogo usa iconos locales. Falta subir y guardar imágenes para uso sin conexión. |
 | FCM desde consola, Topics y tres estados | Parcial. Hay escuchador global y rutas al tocar avisos privados. Faltan Topics, envío de consola en la demo y comprobación en Android. |
-| Firebase Auth, alta por correo y dos proveedores | Parcial. Supabase Auth permite acceder con correo y contraseña para cuentas creadas previamente. Faltan alta desde la app, verificación, reenvío, recuperación y dos proveedores federados. Firebase Auth depende del alcance que acepte el maestro. |
+| Auth, alta por correo y dos proveedores | Implementado en código. Incluye registro, verificación, reenvío, recuperación por correo y acceso con Google y GitHub mediante Supabase Auth. Falta configurar y validar el entorno remoto. |
 | Perfil y avatar sincronizado | Parcial. Perfil muestra datos e iniciales. Falta foto compartida con Tareas, foto del proveedor y permiso de edición para cuentas de correo. |
 | Estado con Riverpod | Implementado. Las ocho llamadas explícitas a `setState` fueron sustituidas. La búsqueda en `lib/` tampoco encontró usos explícitos de `ValueNotifier`. |
 | Tipografía y tema dinámico | Implementados. DM Sans viene incluida con la app y Perfil permite cambiar y recordar el modo claro u oscuro. |
@@ -286,16 +413,20 @@ Para la activación real de avisos y las pruebas SQL y Deno, consultar las
 
 ## 10. Decisiones pendientes y mantenimiento
 
-Conviene conservar Supabase mientras se valida la rúbrica. Las interfaces de
-repositorio permiten reutilizar la UI si cambia el proveedor. Migrar el flujo
-principal implica portar consultas, relaciones, roles, reglas de revisión,
-límites diarios y concurrencia. Si el maestro acepta demostrar Firebase
-Database en un módulo acotado, conviene acordar ese alcance antes de
-implementar un segundo modelo de datos.
+Supabase se mantiene para base de datos y autenticación. El siguiente
+minibloque de cuenta es nombre editable y avatar.
+La creación, las invitaciones y las membresías por ciclo son un bloque aparte.
+Se acordó una membresía activa por cuenta. El administrador debe cerrar su
+ciclo antes de salir. Mi actividad conservará el historial personal. Cuando
+existan múltiples ciclos se podrá añadir un filtro para el ciclo actual en
+la misma pantalla.
 
 **Registro del 14 de noviembre de 2026.** Se migró a Riverpod el estado de
 visibilidad de contraseña y del editor de tareas. Después se añadió DM Sans
-y el cambio claro/oscuro persistente desde Perfil.
+y el cambio claro/oscuro persistente desde Perfil. También se añadió el flujo
+de registro y recuperación por código y la separación entre perfil personal
+y acceso al grupo familiar. Se agregó acceso OAuth con Google y GitHub con
+retorno a Flutter en móvil y web.
 
 En cada cambio del proyecto, actualizar este archivo en la misma revisión.
 Explicar el flujo o método afectado, dónde vive en el código, qué requisito

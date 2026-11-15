@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../models/auth_failure.dart';
 import '../providers/auth_providers.dart';
+import 'widgets/social_sign_in_buttons.dart';
 
 final _passwordVisibilityProvider =
     NotifierProvider.autoDispose<_PasswordVisibility, bool>(
@@ -192,16 +194,27 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                 : 'Iniciar sesión',
                           ),
                         ),
-                        const SizedBox(height: 26),
-                        Text(
-                          '¿Necesitas acceso?\nHabla con el administrador',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: context.appColors.onSurfaceVariant,
-                            height: 1.5,
-                          ),
+                        const SizedBox(height: 12),
+                        TextButton(
+                          onPressed: action.isLoading
+                              ? null
+                              : () => context.go(
+                                  '/recuperar',
+                                  extra: _emailController.text.trim(),
+                                ),
+                          child: const Text('Olvidé mi contraseña'),
+                        ),
+                        TextButton(
+                          onPressed: action.isLoading
+                              ? null
+                              : () => context.go(
+                                  '/registro',
+                                  extra: _emailController.text.trim(),
+                                ),
+                          child: const Text('Crear cuenta'),
                         ),
                         const SizedBox(height: 12),
+                        const SocialSignInButtons(),
                       ],
                     ),
                   ),
