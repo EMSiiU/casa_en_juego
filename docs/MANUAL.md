@@ -145,6 +145,14 @@ mediante PKCE y `watchUser()` carga el perfil. Una cuenta nueva llega a
 Perfil sin ciclo. Supabase puede vincular proveedores a la misma cuenta si
 comparten un correo verificado.
 
+Los botones usan `OutlinedButton.icon` con imágenes PNG empaquetadas en
+[`assets/brand/`](../assets/brand/). Google usa su G multicolor con fondo
+blanco. GitHub usa la versión negra del Invertocat en el tema claro y la
+blanca en el oscuro. Las imágenes son decorativas para el lector de pantalla.
+El texto del botón identifica la acción y el proveedor. Los archivos vienen
+de los [recursos de marca de Google](https://developers.google.com/identity/branding-guidelines)
+y del [kit de marca de GitHub](https://brand.github.com/foundations/logo).
+
 ```mermaid
 sequenceDiagram
     actor U as Usuario
@@ -426,7 +434,8 @@ visibilidad de contraseña y del editor de tareas. Después se añadió DM Sans
 y el cambio claro/oscuro persistente desde Perfil. También se añadió el flujo
 de registro y recuperación por código y la separación entre perfil personal
 y acceso al grupo familiar. Se agregó acceso OAuth con Google y GitHub con
-retorno a Flutter en móvil y web.
+retorno a Flutter en móvil y web. Después se incorporaron los iconos oficiales
+a los botones de acceso.
 
 En cada cambio del proyecto, actualizar este archivo en la misma revisión.
 Explicar el flujo o método afectado, dónde vive en el código, qué requisito

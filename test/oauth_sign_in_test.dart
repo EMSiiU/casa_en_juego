@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:casa_en_juego/features/auth/models/auth_failure.dart';
+import 'package:casa_en_juego/features/auth/presentation/widgets/social_sign_in_buttons.dart';
 import 'package:casa_en_juego/features/auth/providers/auth_providers.dart';
 import 'package:casa_en_juego/features/auth/repositories/oauth_sign_in.dart';
 import 'package:casa_en_juego/features/reviews/providers/reviews_providers.dart';
@@ -14,6 +15,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'support/fake_reviews_repository.dart';
 import 'support/fake_tasks_repository.dart';
 import 'widget_test.dart' show FakeAuthRepository, testUser;
+
+Finder providerButton(String label) => find.ancestor(
+  of: find.text(label),
+  matching: find.byWidgetPredicate((widget) => widget is OutlinedButton),
+);
 
 void main() {
   test('OAuth redirects to the native callback or the current web origin', () {
@@ -33,6 +39,44 @@ void main() {
       oauthRedirectTo(isWeb: false, appUri: local),
       'casaenjuego://auth/callback',
     );
+  });
+
+  testWidgets('Social buttons use local brand icons in both themes', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    for (final (theme, githubAsset) in [
+      (ThemeData.light(), 'assets/brand/github-black.png'),
+      (ThemeData.dark(), 'assets/brand/github-white.png'),
+    ]) {
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            theme: theme,
+            home: const Scaffold(body: SocialSignInButtons()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      for (final (label, asset) in [
+        ('Continuar con Google', 'assets/brand/google-g.png'),
+        ('Continuar con GitHub', githubAsset),
+      ]) {
+        final image = tester.widget<Image>(
+          find.descendant(
+            of: providerButton(label),
+            matching: find.byType(Image),
+          ),
+        );
+        expect((image.image as AssetImage).assetName, asset);
+        expect(image.excludeFromSemantics, isTrue);
+      }
+      expect(tester.takeException(), isNull);
+    }
   });
 
   testWidgets(
@@ -60,14 +104,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      final google = find.widgetWithText(
-        OutlinedButton,
-        'Continuar con Google',
-      );
-      final github = find.widgetWithText(
-        OutlinedButton,
-        'Continuar con GitHub',
-      );
+      final google = providerButton('Continuar con Google');
+      final github = providerButton('Continuar con GitHub');
       await tester.ensureVisible(google);
       await tester.tap(google);
       await tester.pump();
@@ -108,7 +146,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    final google = find.widgetWithText(OutlinedButton, 'Continuar con Google');
+    final google = providerButton('Continuar con Google');
     await tester.ensureVisible(google);
     await tester.tap(google);
     await tester.pumpAndSettle();
