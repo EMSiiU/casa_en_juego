@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_mode_provider.dart';
 import '../../auth/presentation/widgets/account_avatar.dart';
 import '../../auth/models/auth_failure.dart';
+import '../../auth/providers/account_photo_providers.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../models/profile_failure.dart';
 import '../models/profile_state.dart';
@@ -42,6 +43,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   Future<void> _refresh() async {
     if (ref.read(profileProvider).asData?.value.isSaving ?? false) return;
     ref.invalidate(profileProvider);
+    final userId = ref.read(currentUserProvider).asData?.value?.id;
+    if (userId != null) ref.invalidate(accountPhotoProvider(userId));
     try {
       await ref.read(profileProvider.future);
     } catch (_) {
@@ -244,17 +247,41 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     String? avatarUrl,
   ) {
     final user = data.user;
+    final hasPhoto = ref.watch(accountPhotoProvider(user.id)).value != null;
+    final canEdit = !data.isSaving && !isSigningOut;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Center(
           child: AccountAvatar(
             name: user.name,
+            userId: user.id,
             avatarUrl: avatarUrl,
             radius: 42,
           ),
         ),
-        const SizedBox(height: 16),
+        Center(
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            children: [
+              TextButton.icon(
+                onPressed: canEdit
+                    ? ref.read(profileProvider.notifier).changePhoto
+                    : null,
+                icon: const Icon(Icons.add_a_photo_outlined, size: 18),
+                label: Text(hasPhoto ? 'Cambiar foto' : 'Agregar foto'),
+              ),
+              if (hasPhoto)
+                TextButton(
+                  onPressed: canEdit
+                      ? ref.read(profileProvider.notifier).removePhoto
+                      : null,
+                  child: const Text('Quitar foto'),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
         Text(
           user.name,
           textAlign: TextAlign.center,
@@ -359,7 +386,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   title: const Text('Avisos de revisión'),
                   subtitle: Text(
                     data.isSaving
-                        ? 'Guardando preferencia…'
+                        ? 'Guardando cambios…'
                         : 'Preferencia para solicitudes y decisiones',
                     style: TextStyle(
                       fontSize: 12,

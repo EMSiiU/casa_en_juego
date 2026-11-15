@@ -243,14 +243,67 @@ con prioridad para el proveedor social principal cuando está disponible.
 muestra la imagen HTTPS en Perfil y el menú de Tareas. Mientras carga, si no
 hay foto o si la petición falla, muestra las iniciales. En web permite
 mostrar la imagen con un elemento HTML si el CDN bloquea la descarga directa
-por CORS. La subida y la caché persistente de fotos siguen pendientes.
+por CORS. Google y GitHub pueden iniciar sesión en el mismo perfil cuando
+Supabase vincula ambas identidades por correo verificado.
 
 Para comprobarlo, cambia el nombre desde Perfil y abre Tareas con una cuenta
 que pertenezca al grupo. Después, vuelve a iniciar sesión con Google o GitHub
 y verifica que el nombre se conserve y que la misma foto aparezca en ambos
 lugares si el proveedor entregó una.
 [Identidades de Supabase](https://supabase.com/docs/guides/auth/identities)
+· [Vinculación de identidades](https://supabase.com/docs/guides/auth/auth-identity-linking)
 · [Imágenes de red en Flutter](https://api.flutter.dev/flutter/widgets/Image/Image.network.html).
+
+### Foto de perfil personalizada
+
+Desde **Perfil → Agregar foto** puedes elegir un JPG, PNG o WebP de hasta
+2 MB. `file_selector.openFile()` abre el selector de documentos de Android
+(`ACTION_OPEN_DOCUMENT`) o el diálogo de archivos del navegador. En Android
+puede mostrar Descargas y proveedores como Drive, según el dispositivo.
+[`ProfilePhoto.pick()`](../lib/features/profile/models/profile_photo.dart)
+valida el tamaño, la firma del archivo y que la primera imagen se pueda
+decodificar. Cancelar conserva la foto actual. Cuando ya hay una foto propia,
+**Cambiar foto** la reemplaza y **Quitar foto** borra el archivo.
+
+```mermaid
+flowchart LR
+    Profile["Perfil"] --> Controller["ProfileController · cambiar o quitar"]
+    Controller --> Repo["AccountPhotoRepository"]
+    Repo --> Bucket["Storage privado · account-avatars"]
+    Bucket --> Photo["accountPhotoProvider por usuario"]
+    Photo --> Avatar["AccountAvatar · Perfil y menú de cuenta"]
+    OAuth["Foto de Google o GitHub"] -. alternativa .-> Avatar
+```
+
+[`SupabaseAccountPhotoRepository`](../lib/features/auth/repositories/account_photo_repository.dart)
+usa la ruta `<id de usuario>/avatar`. `save()` hace un *upsert* en esa ruta
+y `remove()` la elimina mediante la API de Storage. Así el reemplazo
+mantiene un solo objeto por cuenta. Al terminar, el controlador invalida
+[`accountPhotoProvider`](../lib/features/auth/providers/account_photo_providers.dart).
+El proveedor vuelve a descargar los bytes con la sesión autenticada y evita
+reutilizar la versión anterior de la caché. `AccountAvatar` prueba primero
+la foto propia, después la del proveedor vinculado y por último las iniciales.
+Si falla la carga, se muestra la alternativa disponible. Al deslizar hacia
+abajo desde Perfil, la actualización general vuelve a consultar la foto.
+
+La [migración de fotos](../supabase/migrations/20261114000300_add_account_avatars.sql)
+crea el bucket privado con el límite de 2 MB y los tres tipos MIME. La política
+RLS compara la ruta exacta con `auth.uid()` y permite a cada cuenta
+autenticada leer, subir, reemplazar y borrar su propio objeto. El archivo se
+comparte entre las formas de acceso vinculadas a la misma cuenta.
+[Buckets privados de Supabase](https://supabase.com/docs/guides/storage/buckets/fundamentals)
+· [Selector de archivos de Flutter](https://pub.dev/packages/file_selector).
+
+1. Ejecuta la migración una vez en **Supabase → SQL Editor → New query**.
+   Confirma en **Storage** que aparece el bucket privado `account-avatars`.
+2. Ejecuta `flutter pub get` y reinicia la app para cargar el selector. Prueba
+   **Agregar foto**, **Cambiar foto** y **Quitar foto** en Chrome y en Android.
+3. Cierra sesión y vuelve a entrar antes de quitar la foto para comprobar que
+   persiste. Con una cuenta vinculada, prueba el otro proveedor. Si la cuenta
+   pertenece al grupo, revisa también el icono en Tareas.
+4. Al quitar la foto, comprueba que se recupera la foto del proveedor o las
+   iniciales. Prueba cancelar el selector y el rechazo de un archivo que
+   supere los 2 MB.
 
 ## 4. Tareas, revisiones, historial y ranking
 
@@ -419,7 +472,7 @@ global, la familia tipográfica y la restauración del valor guardado.
 | Firebase Storage y caché local de imágenes | Pendiente. Perfil usa iniciales y el catálogo usa iconos locales. Falta subir y guardar imágenes para uso sin conexión. |
 | FCM desde consola, Topics y tres estados | Parcial. Hay escuchador global y rutas al tocar avisos privados. Faltan Topics, envío de consola en la demo y comprobación en Android. |
 | Auth, alta por correo y dos proveedores | Implementado en código. Incluye registro, verificación, reenvío, recuperación por correo y acceso con Google y GitHub mediante Supabase Auth. Falta configurar y validar el entorno remoto. |
-| Perfil y avatar sincronizado | Parcial. Nombre editable y foto de Google/GitHub compartida entre Perfil y Tareas, con iniciales como alternativa. Falta subir o cambiar la foto de las cuentas registradas por correo. |
+| Perfil y avatar sincronizado | Implementado. Nombre editable y foto opcional que se puede subir, reemplazar o quitar. Perfil y Tareas muestran la foto de la cuenta con retorno a la imagen OAuth o a las iniciales. |
 | Estado con Riverpod | Implementado. Las ocho llamadas explícitas a `setState` fueron sustituidas. La búsqueda en `lib/` tampoco encontró usos explícitos de `ValueNotifier`. |
 | Tipografía y tema dinámico | Implementados. DM Sans viene incluida con la app y Perfil permite cambiar y recordar el modo claro u oscuro. |
 | Onboarding | Pendiente. |
@@ -466,9 +519,9 @@ Para la activación real de avisos y las pruebas SQL y Deno, consultar las
 
 ## 10. Decisiones pendientes y mantenimiento
 
-Supabase se mantiene para base de datos y autenticación. El siguiente
-minibloque de cuenta es la subida opcional de fotos para usuarios de correo.
-La creación, las invitaciones y las membresías por ciclo son un bloque aparte.
+Supabase se mantiene para base de datos, autenticación y fotos de perfil.
+El siguiente bloque abarca la creación, las invitaciones y las membresías
+por ciclo.
 Se acordó una membresía activa por cuenta. El administrador debe cerrar su
 ciclo antes de salir. Mi actividad conservará el historial personal. Cuando
 existan múltiples ciclos se podrá añadir un filtro para el ciclo actual en
@@ -481,7 +534,9 @@ de registro y recuperación por código y la separación entre perfil personal
 y acceso al grupo familiar. Se agregó acceso OAuth con Google y GitHub con
 retorno a Flutter en móvil y web. Después se incorporaron los iconos oficiales
 a los botones de acceso, el nombre editable y la foto de los proveedores en
-Perfil y Tareas.
+Perfil y Tareas. Se añadió la foto personal opcional en Supabase Storage
+con sustitución y eliminación desde Perfil. Se retiró el botón de reintento
+de carga del avatar.
 
 En cada cambio del proyecto, actualizar este archivo en la misma revisión.
 Explicar el flujo o método afectado, dónde vive en el código, qué requisito

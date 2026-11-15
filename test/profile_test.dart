@@ -1,12 +1,17 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:casa_en_juego/core/router/app_router.dart';
 import 'package:casa_en_juego/core/theme/theme_mode_provider.dart';
 import 'package:casa_en_juego/features/auth/models/app_user.dart';
 import 'package:casa_en_juego/features/auth/models/auth_failure.dart';
 import 'package:casa_en_juego/features/auth/presentation/widgets/account_avatar.dart';
+import 'package:casa_en_juego/features/auth/providers/account_photo_providers.dart';
 import 'package:casa_en_juego/features/auth/providers/auth_providers.dart';
+import 'package:casa_en_juego/features/auth/repositories/account_photo_repository.dart';
 import 'package:casa_en_juego/features/profile/models/profile_failure.dart';
+import 'package:casa_en_juego/features/profile/models/profile_photo.dart';
 import 'package:casa_en_juego/features/profile/presentation/profile_page.dart';
 import 'package:casa_en_juego/features/profile/providers/profile_providers.dart';
 import 'package:casa_en_juego/features/activity/providers/activity_providers.dart';
@@ -29,6 +34,8 @@ Future<ProviderContainer> startProfile(
   FakeProfileRepository repository, {
   FakeAuthRepository? auth,
   SharedPreferencesWithCache? appearance,
+  AccountPhotoRepository? photos,
+  Future<ProfilePhoto?> Function()? pickPhoto,
 }) async {
   final authRepository = auth ?? (FakeAuthRepository()..user = testUser);
   addTearDown(authRepository.events.close);
@@ -38,6 +45,9 @@ Future<ProviderContainer> startProfile(
         authRepositoryProvider.overrideWithValue(authRepository),
         themePreferencesProvider.overrideWithValue(appearance),
         profileRepositoryProvider.overrideWithValue(repository),
+        accountPhotoRepositoryProvider.overrideWithValue(photos ?? _Photos()),
+        if (pickPhoto != null)
+          profilePhotoPickerProvider.overrideWithValue(pickPhoto),
         tasksRepositoryProvider.overrideWithValue(FakeTasksRepository()),
         reviewsRepositoryProvider.overrideWithValue(FakeReviewsRepository()),
         activityRepositoryProvider.overrideWithValue(FakeActivityRepository()),
@@ -52,6 +62,23 @@ Future<ProviderContainer> startProfile(
   container.read(appRouterProvider).go('/profile');
   await tester.pumpAndSettle();
   return container;
+}
+
+class _Photos implements AccountPhotoRepository {
+  final saved = <String, Uint8List>{};
+  String? contentType;
+
+  @override
+  Future<Uint8List?> load(String userId) async => saved[userId];
+
+  @override
+  Future<void> save(String userId, Uint8List bytes, String contentType) async {
+    saved[userId] = bytes;
+    this.contentType = contentType;
+  }
+
+  @override
+  Future<void> remove(String userId) async => saved.remove(userId);
 }
 
 final notificationSwitch = find.widgetWithText(
@@ -83,6 +110,59 @@ Future<void> togglePreference(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('A custom photo can be added, replaced and removed', (
+    tester,
+  ) async {
+    final bytes = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aT6sAAAAASUVORK5CYII=',
+    );
+    final photos = _Photos();
+    ProfilePhoto? selected;
+    final container = await startProfile(
+      tester,
+      FakeProfileRepository(),
+      photos: photos,
+      pickPhoto: () async => selected,
+    );
+    final router = container.read(appRouterProvider);
+    final id = testUser.id;
+    Future<void> tap(String label) async {
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+    }
+
+    await tap('Agregar foto');
+    expect(photos.saved, isEmpty);
+    expect(find.text('A'), findsOneWidget);
+
+    selected = ProfilePhoto(bytes, 'image/png');
+    await tap('Agregar foto');
+    expect(photos.saved[id], same(bytes));
+    expect(photos.contentType, 'image/png');
+    expect(find.text('Quitar foto'), findsOneWidget);
+
+    final replacement = Uint8List.fromList(bytes);
+    selected = ProfilePhoto(replacement, 'image/png');
+    await tap('Cambiar foto');
+    expect(photos.saved[id], same(replacement));
+    router.go('/tasks');
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byType(AccountAvatar),
+        matching: find.byType(Image),
+      ),
+      findsOneWidget,
+    );
+
+    router.go('/profile');
+    await tester.pumpAndSettle();
+    await tap('Quitar foto');
+    expect(photos.saved, isEmpty);
+    expect(find.text('Agregar foto'), findsOneWidget);
+    expect(find.text('A'), findsOneWidget);
+  });
+
   testWidgets('A saved name updates Profile and the Tasks greeting', (
     tester,
   ) async {
@@ -226,7 +306,7 @@ void main() {
       final container = await startProfile(tester, repository);
       await togglePreference(tester);
       await tester.pump();
-      expect(find.text('Guardando preferencia…'), findsOneWidget);
+      expect(find.text('Guardando cambios…'), findsOneWidget);
       expect(tester.widget<SwitchListTile>(notificationSwitch).value, isTrue);
       await container.read(profileProvider.notifier).setNotifications(false);
       expect(repository.saveCalls, 1);

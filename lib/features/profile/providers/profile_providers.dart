@@ -6,14 +6,19 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/network/supabase_provider.dart';
 import '../../auth/models/app_user.dart';
+import '../../auth/providers/account_photo_providers.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../models/profile_failure.dart';
+import '../models/profile_photo.dart';
 import '../models/profile_state.dart';
 import '../repositories/profile_repository.dart';
 import '../../notifications/providers/notification_providers.dart';
 
 final profileRepositoryProvider = Provider<ProfileRepository>(
   (ref) => SupabaseProfileRepository(ref.watch(supabaseClientProvider)),
+);
+final profilePhotoPickerProvider = Provider<Future<ProfilePhoto?> Function()>(
+  (ref) => ProfilePhoto.pick,
 );
 final profileProvider =
     AsyncNotifierProvider.autoDispose<ProfileController, ProfileState>(
@@ -64,21 +69,44 @@ class ProfileController extends AsyncNotifier<ProfileState> {
   Future<void> rename(String name) async {
     final trimmed = name.trim();
     if (state.asData?.value.user.name == trimmed) return;
-    final pendingWrite = ref.keepAlive();
-    try {
-      await _save(
-        (repository, user) async =>
-            user.withName(await repository.rename(trimmed)),
-        onSaved: (user) =>
-            ref.read(accountNameProvider.notifier).applySavedName(user),
-      );
-    } finally {
-      pendingWrite.close();
-    }
+    await _save(
+      (repository, user) async =>
+          user.withName(await repository.rename(trimmed)),
+      onSaved: (user) =>
+          ref.read(accountNameProvider.notifier).applySavedName(user),
+    );
   }
 
+  Future<void> changePhoto() => _writePhoto(remove: false);
+
+  Future<void> removePhoto() => _writePhoto(remove: true);
+
+  Future<void> _writePhoto({required bool remove}) => _save((_, user) async {
+    final photos = ref.read(accountPhotoRepositoryProvider);
+    try {
+      if (remove) {
+        await photos.remove(user.id);
+      } else {
+        final photo = await ref.read(profilePhotoPickerProvider)();
+        if (photo == null ||
+            !ref.mounted ||
+            ref.read(currentUserProvider).asData?.value?.id != user.id) {
+          return null;
+        }
+        await photos.save(user.id, photo.bytes, photo.contentType);
+      }
+    } on StorageException {
+      throw ProfileFailure(
+        remove
+            ? 'No pudimos quitar tu foto. Inténtalo de nuevo.'
+            : 'No pudimos guardar tu foto. Inténtalo de nuevo.',
+      );
+    }
+    return user;
+  }, onSaved: (user) => ref.invalidate(accountPhotoProvider(user.id)));
+
   Future<void> _save(
-    Future<AppUser> Function(ProfileRepository, AppUser) update, {
+    Future<AppUser?> Function(ProfileRepository, AppUser) update, {
     required FutureOr<void> Function(AppUser) onSaved,
   }) async {
     final current = state.asData?.value;
@@ -91,6 +119,7 @@ class ProfileController extends AsyncNotifier<ProfileState> {
       return;
     }
     final generation = _generation;
+    final pendingWrite = ref.keepAlive();
     // Publica los cambios solo después de que Supabase confirme el guardado.
     state = AsyncData(ProfileState(user: current.user, isSaving: true));
     try {
@@ -103,8 +132,8 @@ class ProfileController extends AsyncNotifier<ProfileState> {
           ref.read(currentUserProvider).asData?.value?.id != userId) {
         return;
       }
-      state = AsyncData(ProfileState(user: saved));
-      await onSaved(saved);
+      state = AsyncData(ProfileState(user: saved ?? current.user));
+      if (saved != null) await onSaved(saved);
     } catch (error) {
       if (!ref.mounted ||
           generation != _generation ||
@@ -118,6 +147,8 @@ class ProfileController extends AsyncNotifier<ProfileState> {
           errorMessage: ProfileFailure.messageFor(error),
         ),
       );
+    } finally {
+      pendingWrite.close();
     }
   }
 

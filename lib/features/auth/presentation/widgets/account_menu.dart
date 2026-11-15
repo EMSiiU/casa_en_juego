@@ -45,7 +45,11 @@ class AccountMenu extends ConsumerWidget {
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
             )
-          : AccountAvatar(name: name, avatarUrl: user?.avatarUrl),
+          : AccountAvatar(
+              name: name,
+              userId: user?.id,
+              avatarUrl: user?.avatarUrl,
+            ),
     );
   }
 }
