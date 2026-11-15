@@ -52,12 +52,12 @@ class _LeaderboardPageState extends ConsumerState<LeaderboardPage> {
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 84,
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'RANKING FAMILIAR',
-              style: TextStyle(fontSize: 10, color: AppTheme.primary),
+              style: TextStyle(fontSize: 10, color: context.appColors.primary),
             ),
             SizedBox(height: 4),
             Text(
@@ -138,12 +138,15 @@ class _LeaderboardPageState extends ConsumerState<LeaderboardPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: const Color(0xFF26413E),
+                color: context.statusColors.approvedContainer,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Text(
+              child: Text(
                 'Ciclo activo',
-                style: TextStyle(color: Color(0xFF91D5C6), fontSize: 11),
+                style: TextStyle(
+                  color: context.statusColors.approved,
+                  fontSize: 11,
+                ),
               ),
             ),
           ],
@@ -175,7 +178,7 @@ class _LeaderboardPageState extends ConsumerState<LeaderboardPage> {
                   children: [
                     Text(
                       standing.position?.toString() ?? '—',
-                      style: const TextStyle(color: AppTheme.primary),
+                      style: TextStyle(color: context.appColors.primary),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -221,9 +224,12 @@ class _LeaderboardPageState extends ConsumerState<LeaderboardPage> {
           const Text('Tus mejores tareas', style: TextStyle(fontSize: 17)),
           const SizedBox(height: 12),
           if (bestTasks.isEmpty)
-            const Text(
+            Text(
               'Tus tareas aprobadas aparecerán aquí.',
-              style: TextStyle(color: Color(0xFFB8B9C9), fontSize: 12),
+              style: TextStyle(
+                color: context.appColors.onSurfaceVariant,
+                fontSize: 12,
+              ),
             )
           else
             for (final task in bestTasks)
@@ -243,8 +249,8 @@ class _LeaderboardPageState extends ConsumerState<LeaderboardPage> {
                           ),
                           Text(
                             '${task.completedCount} ${task.completedCount == 1 ? 'aprobada' : 'aprobadas'}',
-                            style: const TextStyle(
-                              color: Color(0xFFB8B9C9),
+                            style: TextStyle(
+                              color: context.appColors.onSurfaceVariant,
                               fontSize: 11,
                             ),
                           ),
@@ -254,8 +260,8 @@ class _LeaderboardPageState extends ConsumerState<LeaderboardPage> {
                     const SizedBox(width: 8),
                     Text(
                       '${task.points} pts',
-                      style: const TextStyle(
-                        color: AppTheme.primary,
+                      style: TextStyle(
+                        color: context.appColors.primary,
                         fontSize: 12,
                       ),
                     ),
@@ -264,10 +270,14 @@ class _LeaderboardPageState extends ConsumerState<LeaderboardPage> {
               ),
         ],
         const SizedBox(height: 12),
-        const Text(
+        Text(
           'Solo suman las tareas aprobadas del ciclo activo. Los empates comparten posición.',
           textAlign: TextAlign.center,
-          style: TextStyle(color: Color(0xFFB8B9C9), fontSize: 11, height: 1.5),
+          style: TextStyle(
+            color: context.appColors.onSurfaceVariant,
+            fontSize: 11,
+            height: 1.5,
+          ),
         ),
       ],
     );
@@ -288,7 +298,9 @@ class _MetricCard extends StatelessWidget {
     width: double.infinity,
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: highlighted ? const Color(0xFF39334F) : AppTheme.surface,
+      color: highlighted
+          ? context.appColors.primaryContainer
+          : context.appColors.surface,
       borderRadius: BorderRadius.circular(18),
     ),
     child: Column(
@@ -296,7 +308,10 @@ class _MetricCard extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(color: Color(0xFFB8B9C9), fontSize: 11),
+          style: TextStyle(
+            color: context.appColors.onSurfaceVariant,
+            fontSize: 11,
+          ),
         ),
         const SizedBox(height: 8),
         Text(
@@ -320,10 +335,10 @@ class _LeaderboardStatus extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
-          const Icon(
+          Icon(
             Icons.emoji_events_outlined,
             size: 38,
-            color: AppTheme.primary,
+            color: context.appColors.primary,
           ),
           const SizedBox(height: 16),
           if (title != null) ...[
@@ -337,7 +352,10 @@ class _LeaderboardStatus extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Color(0xFFB8B9C9), height: 1.5),
+            style: TextStyle(
+              color: context.appColors.onSurfaceVariant,
+              height: 1.5,
+            ),
           ),
           if (action != null) ...[const SizedBox(height: 16), action!],
         ],

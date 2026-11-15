@@ -31,7 +31,10 @@ class ContributionChart extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               'Solo tareas aprobadas · Total familiar: $totalPoints pts',
-              style: const TextStyle(fontSize: 11, color: Color(0xFFB8B9C9)),
+              style: TextStyle(
+                fontSize: 11,
+                color: context.appColors.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 16),
             for (final standing in standings)
@@ -49,8 +52,8 @@ class ContributionChart extends StatelessWidget {
                             standing.member.name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Color(0xFFB8B9C9),
+                            style: TextStyle(
+                              color: context.appColors.onSurfaceVariant,
                               fontSize: 12,
                             ),
                           ),
@@ -77,14 +80,16 @@ class ContributionChart extends StatelessWidget {
                                         width: 10,
                                         color:
                                             standing.member.id == currentUserId
-                                            ? AppTheme.primary
-                                            : AppTheme.secondaryText,
+                                            ? context.appColors.primary
+                                            : context.appColors.outline,
                                         borderRadius: BorderRadius.circular(4),
                                         backDrawRodData:
                                             BackgroundBarChartRodData(
                                               show: true,
                                               toY: maxPoints,
-                                              color: const Color(0xFF333543),
+                                              color: context
+                                                  .appColors
+                                                  .surfaceContainerHighest,
                                             ),
                                       ),
                                     ],

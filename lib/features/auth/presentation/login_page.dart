@@ -70,9 +70,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Icon(Icons.home_outlined, color: AppTheme.primary),
+                            Icon(
+                              Icons.home_outlined,
+                              color: context.appColors.primary,
+                            ),
                             SizedBox(width: 10),
                             Text('Casa en Juego'),
                           ],
@@ -89,10 +92,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               ),
                         ),
                         const SizedBox(height: 14),
-                        const Text(
+                        Text(
                           'Reparte el esfuerzo, registra tus tareas y sube en el ranking familiar.',
                           style: TextStyle(
-                            color: Color(0xFFB8B9C9),
+                            color: context.appColors.onSurfaceVariant,
                             height: 1.5,
                           ),
                         ),
@@ -167,7 +170,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             liveRegion: true,
                             child: Text(
                               AuthFailure.messageFor(action.error!),
-                              style: const TextStyle(color: Color(0xFFF3A69B)),
+                              style: TextStyle(color: context.appColors.error),
                             ),
                           ),
                         ],
@@ -190,11 +193,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           ),
                         ),
                         const SizedBox(height: 26),
-                        const Text(
+                        Text(
                           '¿Necesitas acceso?\nHabla con el administrador',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: Color(0xFFB8B9C9),
+                            color: context.appColors.onSurfaceVariant,
                             height: 1.5,
                           ),
                         ),
@@ -230,26 +233,30 @@ class _HouseIllustration extends StatelessWidget {
                 width: 120,
                 height: 120,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF39334F),
+                  color: context.appColors.primaryContainer,
                   borderRadius: BorderRadius.circular(40),
                 ),
               ),
             ),
-            const Icon(Icons.home_outlined, size: 72, color: AppTheme.primary),
-            const Positioned(
+            Icon(
+              Icons.home_outlined,
+              size: 72,
+              color: context.appColors.primary,
+            ),
+            Positioned(
               right: 0,
               top: 16,
               child: _IllustrationBadge(
                 icon: Icons.auto_awesome_outlined,
-                color: Color(0xFFF2C978),
+                color: context.statusColors.pending,
               ),
             ),
-            const Positioned(
+            Positioned(
               left: 0,
               bottom: 8,
               child: _IllustrationBadge(
                 icon: Icons.check,
-                color: Color(0xFF91D5C6),
+                color: context.statusColors.approved,
               ),
             ),
           ],

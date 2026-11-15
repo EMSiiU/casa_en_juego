@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:casa_en_juego/core/router/app_router.dart';
+import 'package:casa_en_juego/core/theme/theme_mode_provider.dart';
 import 'package:casa_en_juego/features/auth/models/app_user.dart';
 import 'package:casa_en_juego/features/auth/models/auth_failure.dart';
 import 'package:casa_en_juego/features/auth/providers/auth_providers.dart';
@@ -14,6 +15,7 @@ import 'package:casa_en_juego/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fake_profile_repository.dart';
 import 'support/fake_activity_repository.dart';
@@ -25,6 +27,7 @@ Future<ProviderContainer> startProfile(
   WidgetTester tester,
   FakeProfileRepository repository, {
   FakeAuthRepository? auth,
+  SharedPreferencesWithCache? appearance,
 }) async {
   final authRepository = auth ?? (FakeAuthRepository()..user = testUser);
   addTearDown(authRepository.events.close);
@@ -32,6 +35,7 @@ Future<ProviderContainer> startProfile(
     ProviderScope(
       overrides: [
         authRepositoryProvider.overrideWithValue(authRepository),
+        themePreferencesProvider.overrideWithValue(appearance),
         profileRepositoryProvider.overrideWithValue(repository),
         tasksRepositoryProvider.overrideWithValue(FakeTasksRepository()),
         reviewsRepositoryProvider.overrideWithValue(FakeReviewsRepository()),
@@ -49,13 +53,73 @@ Future<ProviderContainer> startProfile(
   return container;
 }
 
+final notificationSwitch = find.widgetWithText(
+  SwitchListTile,
+  'Avisos de revisión',
+);
+
+class _MemoryAppearance implements SharedPreferencesWithCache {
+  final _values = <String, String>{};
+
+  String? get savedMode => _values[themePreferenceKey];
+
+  @override
+  Object? get(String key) => _values[key];
+
+  @override
+  Future<void> setString(String key, String value) async {
+    _values[key] = value;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 Future<void> togglePreference(WidgetTester tester) async {
-  await tester.ensureVisible(find.byType(SwitchListTile));
+  await tester.ensureVisible(notificationSwitch);
   await tester.pumpAndSettle();
-  await tester.tap(find.byType(SwitchListTile));
+  await tester.tap(notificationSwitch);
 }
 
 void main() {
+  testWidgets('Profile switches the whole app and restores the saved theme', (
+    tester,
+  ) async {
+    final appearance = _MemoryAppearance();
+    final container = await startProfile(
+      tester,
+      FakeProfileRepository(),
+      appearance: appearance,
+    );
+    final themeSwitch = find.widgetWithText(SwitchListTile, 'Modo oscuro');
+    await tester.scrollUntilVisible(
+      themeSwitch,
+      180,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(tester.widget<SwitchListTile>(themeSwitch).value, isTrue);
+    await tester.tap(themeSwitch);
+    await tester.pumpAndSettle();
+
+    final theme = Theme.of(tester.element(find.byType(ProfilePage)));
+    expect(theme.brightness, Brightness.light);
+    expect(theme.textTheme.bodyMedium?.fontFamily, 'DM Sans');
+    expect(appearance.savedMode, 'light');
+
+    container.read(appRouterProvider).go('/tasks');
+    await tester.pumpAndSettle();
+    final tasksContext = tester.element(find.byType(Scaffold).last);
+    expect(Theme.of(tasksContext).brightness, Brightness.light);
+
+    final reopened = ProviderContainer(
+      overrides: [themePreferencesProvider.overrideWithValue(appearance)],
+    );
+    addTearDown(reopened.dispose);
+    expect(reopened.read(themeModeProvider), ThemeMode.light);
+    await reopened.read(themeModeProvider.notifier).setDarkMode(true);
+    expect(appearance.savedMode, 'dark');
+  });
+
   testWidgets(
     'Profile shows user data and persists the preference without changing the auth route',
     (tester) async {
@@ -67,10 +131,7 @@ void main() {
       await togglePreference(tester);
       await tester.pumpAndSettle();
       expect(repository.savedUserId, testUser.id);
-      expect(
-        tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-        isFalse,
-      );
+      expect(tester.widget<SwitchListTile>(notificationSwitch).value, isFalse);
       expect(
         container
             .read(appRouterProvider)
@@ -82,10 +143,7 @@ void main() {
       );
       container.invalidate(profileProvider);
       await tester.pumpAndSettle();
-      expect(
-        tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-        isFalse,
-      );
+      expect(tester.widget<SwitchListTile>(notificationSwitch).value, isFalse);
     },
   );
 
@@ -98,18 +156,12 @@ void main() {
       await togglePreference(tester);
       await tester.pump();
       expect(find.text('Guardando preferencia…'), findsOneWidget);
-      expect(
-        tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-        isTrue,
-      );
+      expect(tester.widget<SwitchListTile>(notificationSwitch).value, isTrue);
       await container.read(profileProvider.notifier).setNotifications(false);
       expect(repository.saveCalls, 1);
       repository.pendingSave!.complete();
       await tester.pumpAndSettle();
-      expect(
-        tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-        isFalse,
-      );
+      expect(tester.widget<SwitchListTile>(notificationSwitch).value, isFalse);
     },
   );
 
@@ -122,17 +174,11 @@ void main() {
     await togglePreference(tester);
     await tester.pumpAndSettle();
     expect(find.text('No se pudo guardar'), findsOneWidget);
-    expect(
-      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-      isTrue,
-    );
+    expect(tester.widget<SwitchListTile>(notificationSwitch).value, isTrue);
     repository.saveError = null;
     await togglePreference(tester);
     await tester.pumpAndSettle();
-    expect(
-      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-      isFalse,
-    );
+    expect(tester.widget<SwitchListTile>(notificationSwitch).value, isFalse);
   });
 
   testWidgets('Profile loading failures permit retrying', (tester) async {
@@ -205,12 +251,12 @@ void main() {
       await startProfile(tester, repository);
       expect(find.text('Administrador'), findsOneWidget);
       await tester.scrollUntilVisible(
-        find.byType(SwitchListTile),
+        notificationSwitch,
         160,
         scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
-      expect(find.byType(SwitchListTile).hitTestable(), findsOneWidget);
+      expect(notificationSwitch.hitTestable(), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

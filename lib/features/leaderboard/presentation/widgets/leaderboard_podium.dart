@@ -71,20 +71,20 @@ class _PodiumPerson extends StatelessWidget {
     mainAxisSize: MainAxisSize.min,
     children: [
       if (standing.position == 1) ...[
-        const Icon(
+        Icon(
           Icons.workspace_premium_outlined,
-          color: Color(0xFFF2C978),
+          color: context.statusColors.pending,
           size: 24,
         ),
         const SizedBox(height: 8),
       ],
       CircleAvatar(
         radius: standing.position == 1 ? 26 : 22,
-        backgroundColor: const Color(0xFF39334F),
+        backgroundColor: context.appColors.primaryContainer,
         child: Text(
           standing.member.name.characters.take(2).toString().toUpperCase(),
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: context.appColors.onSurface,
             fontSize: 14,
             fontWeight: FontWeight.bold,
           ),
@@ -111,8 +111,8 @@ class _PodiumPerson extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
         decoration: BoxDecoration(
           color: standing.position == 1
-              ? const Color(0xFF39334F)
-              : AppTheme.surface,
+              ? context.appColors.primaryContainer
+              : context.appColors.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
         ),
         child: Column(
@@ -123,18 +123,26 @@ class _PodiumPerson extends StatelessWidget {
               style: TextStyle(
                 fontSize: 26,
                 fontWeight: FontWeight.bold,
-                color: isCurrent ? AppTheme.primary : Colors.white,
+                color: isCurrent
+                    ? context.appColors.primary
+                    : context.appColors.onSurface,
               ),
             ),
             Text(
               positionLabel(standing.position),
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(0xFFB8B9C9), fontSize: 10),
+              style: TextStyle(
+                color: context.appColors.onSurfaceVariant,
+                fontSize: 10,
+              ),
             ),
             if (isTied)
-              const Text(
+              Text(
                 'Empate',
-                style: TextStyle(color: AppTheme.primary, fontSize: 10),
+                style: TextStyle(
+                  color: context.appColors.primary,
+                  fontSize: 10,
+                ),
               ),
           ],
         ),

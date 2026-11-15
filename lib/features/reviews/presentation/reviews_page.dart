@@ -36,7 +36,7 @@ class ReviewsPage extends ConsumerWidget {
           children: [
             Text(
               count == null ? 'SOLICITUDES DE OTROS' : '$count POR REVISAR',
-              style: const TextStyle(color: AppTheme.primary, fontSize: 10),
+              style: TextStyle(color: context.appColors.primary, fontSize: 10),
             ),
             const SizedBox(height: 4),
             const Text(
@@ -71,23 +71,23 @@ class ReviewsPage extends ConsumerWidget {
                           Container(
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF39334F),
+                              color: context.appColors.primaryContainer,
                               borderRadius: BorderRadius.circular(14),
                             ),
-                            child: const Row(
+                            child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Icon(
                                   Icons.info_outline,
                                   size: 18,
-                                  color: AppTheme.primary,
+                                  color: context.appColors.primary,
                                 ),
                                 SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
                                     'Aquí revisas a tus hermanos. Tus propias tareas solo las puede validar otra persona.',
                                     style: TextStyle(
-                                      color: Color(0xFFB8B9C9),
+                                      color: context.appColors.onSurfaceVariant,
                                       fontSize: 12,
                                       height: 1.5,
                                     ),
@@ -102,8 +102,8 @@ class ReviewsPage extends ConsumerWidget {
                               liveRegion: true,
                               child: Text(
                                 action.errorMessage!,
-                                style: const TextStyle(
-                                  color: Color(0xFFF3A69B),
+                                style: TextStyle(
+                                  color: context.appColors.error,
                                 ),
                               ),
                             ),
@@ -132,10 +132,10 @@ class ReviewsPage extends ConsumerWidget {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.cloud_off_outlined,
                                 size: 36,
-                                color: AppTheme.primary,
+                                color: context.appColors.primary,
                               ),
                               const SizedBox(height: 16),
                               Text(
@@ -154,7 +154,7 @@ class ReviewsPage extends ConsumerWidget {
                     ],
                     data: (requests) => requests.isEmpty
                         ? [
-                            const SliverFillRemaining(
+                            SliverFillRemaining(
                               hasScrollBody: false,
                               child: Padding(
                                 padding: EdgeInsets.all(24),
@@ -163,7 +163,7 @@ class ReviewsPage extends ConsumerWidget {
                                   children: [
                                     Icon(
                                       Icons.task_alt,
-                                      color: AppTheme.primary,
+                                      color: context.appColors.primary,
                                       size: 42,
                                     ),
                                     SizedBox(height: 16),
@@ -180,7 +180,8 @@ class ReviewsPage extends ConsumerWidget {
                                       'Aquí aparecerán las tareas pendientes de otros miembros del ciclo activo.',
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
-                                        color: Color(0xFFB8B9C9),
+                                        color:
+                                            context.appColors.onSurfaceVariant,
                                         height: 1.5,
                                       ),
                                     ),
@@ -233,13 +234,13 @@ class ReviewsPage extends ConsumerWidget {
                                 },
                               ),
                             ),
-                            const SliverToBoxAdapter(
+                            SliverToBoxAdapter(
                               child: Padding(
                                 padding: EdgeInsets.fromLTRB(20, 0, 20, 24),
                                 child: Text(
                                   'Fechas en UTC−5. El solicitante verá el resultado en Mi actividad.',
                                   style: TextStyle(
-                                    color: Color(0xFFB8B9C9),
+                                    color: context.appColors.onSurfaceVariant,
                                     fontSize: 11,
                                     height: 1.5,
                                   ),

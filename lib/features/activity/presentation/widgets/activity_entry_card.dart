@@ -12,9 +12,9 @@ class ActivityEntryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (entry.status) {
-      TaskLogStatus.pending => ('Pendiente', const Color(0xFFF2C978)),
-      TaskLogStatus.approved => ('Aprobada', const Color(0xFF91D5C6)),
-      TaskLogStatus.rejected => ('Rechazada', const Color(0xFFF3A69B)),
+      TaskLogStatus.pending => ('Pendiente', context.statusColors.pending),
+      TaskLogStatus.approved => ('Aprobada', context.statusColors.approved),
+      TaskLogStatus.rejected => ('Rechazada', context.appColors.error),
     };
     final pending = entry.status == TaskLogStatus.pending;
     return Card(
@@ -49,7 +49,7 @@ class ActivityEntryCard extends StatelessWidget {
                     textAlign: TextAlign.end,
                     style: TextStyle(
                       color: entry.status == TaskLogStatus.rejected
-                          ? AppTheme.secondaryText
+                          ? context.appColors.outline
                           : color,
                       fontSize: 12,
                     ),
@@ -65,15 +65,15 @@ class ActivityEntryCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               ActivityDateFormatter.format(entry.requestedAt),
-              style: const TextStyle(color: Color(0xFFB8B9C9), fontSize: 12),
+              style: TextStyle(
+                color: context.appColors.onSurfaceVariant,
+                fontSize: 12,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
               entry.seasonName,
-              style: const TextStyle(
-                color: AppTheme.secondaryText,
-                fontSize: 11,
-              ),
+              style: TextStyle(color: context.appColors.outline, fontSize: 11),
             ),
             const SizedBox(height: 10),
             if (pending)
@@ -102,8 +102,8 @@ class ActivityEntryCard extends StatelessWidget {
               Text(
                 '${entry.status == TaskLogStatus.approved ? 'Aprobó' : 'Rechazó'} ${entry.reviewerName ?? 'otro miembro'}'
                 '${entry.resolvedAt == null ? '' : ' · ${ActivityDateFormatter.format(entry.resolvedAt!)}'}',
-                style: const TextStyle(
-                  color: Color(0xFFB8B9C9),
+                style: TextStyle(
+                  color: context.appColors.onSurfaceVariant,
                   fontSize: 11,
                   height: 1.4,
                 ),

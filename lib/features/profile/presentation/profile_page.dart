@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_navigation_bar.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_mode_provider.dart';
 import '../../auth/models/auth_failure.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../models/profile_failure.dart';
@@ -51,15 +52,16 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   Widget build(BuildContext context) {
     final profile = ref.watch(profileProvider);
     final authAction = ref.watch(authControllerProvider);
+    final isDark = ref.watch(themeModeProvider) == ThemeMode.dark;
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 80,
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'CASA EN JUEGO',
-              style: TextStyle(color: AppTheme.primary, fontSize: 10),
+              style: TextStyle(color: context.appColors.primary, fontSize: 10),
             ),
             SizedBox(height: 4),
             Text('Tu espacio', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -89,9 +91,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                         padding: const EdgeInsets.all(24),
                         child: Column(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.person_off_outlined,
-                              color: AppTheme.primary,
+                              color: context.appColors.primary,
                               size: 36,
                             ),
                             const SizedBox(height: 16),
@@ -111,6 +113,18 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                     data: (data) => _buildProfile(data, authAction.isLoading),
                   ),
                   const SizedBox(height: 20),
+                  Card(
+                    margin: EdgeInsets.zero,
+                    child: SwitchListTile.adaptive(
+                      secondary: const Icon(Icons.dark_mode_outlined),
+                      title: const Text('Modo oscuro'),
+                      value: isDark,
+                      onChanged: ref
+                          .read(themeModeProvider.notifier)
+                          .setDarkMode,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
                   TextButton.icon(
                     onPressed:
                         authAction.isLoading ||
@@ -126,7 +140,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                           : 'Cerrar sesión',
                     ),
                     style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFFF3A69B),
+                      foregroundColor: context.appColors.error,
                       alignment: Alignment.centerLeft,
                       minimumSize: const Size(0, 52),
                     ),
@@ -136,15 +150,15 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       liveRegion: true,
                       child: Text(
                         AuthFailure.messageFor(authAction.error!),
-                        style: const TextStyle(color: Color(0xFFF3A69B)),
+                        style: TextStyle(color: context.appColors.error),
                       ),
                     ),
                   const SizedBox(height: 24),
-                  const Text(
+                  Text(
                     'Casa en Juego · Cada pequeño esfuerzo cuenta.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: AppTheme.secondaryText,
+                      color: context.appColors.outline,
                       fontSize: 11,
                     ),
                   ),
@@ -166,11 +180,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         Center(
           child: CircleAvatar(
             radius: 42,
-            backgroundColor: const Color(0xFF39334F),
+            backgroundColor: context.appColors.primaryContainer,
             child: Text(
               user.name.characters.take(2).toString().toUpperCase(),
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: context.appColors.onSurface,
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
               ),
@@ -187,19 +201,19 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         Text(
           user.email,
           textAlign: TextAlign.center,
-          style: const TextStyle(color: Color(0xFFB8B9C9)),
+          style: TextStyle(color: context.appColors.onSurfaceVariant),
         ),
         const SizedBox(height: 10),
         Center(
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: const Color(0xFF39334F),
+              color: context.appColors.primaryContainer,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
               user.isAdmin ? 'Administrador' : 'Miembro',
-              style: const TextStyle(color: AppTheme.primary, fontSize: 11),
+              style: TextStyle(color: context.appColors.primary, fontSize: 11),
             ),
           ),
         ),
@@ -207,11 +221,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         if (user.isAdmin) ...[
           Card(
             margin: EdgeInsets.zero,
-            color: const Color(0xFF39334F),
+            color: context.appColors.primaryContainer,
             child: ListTile(
-              leading: const Icon(
+              leading: Icon(
                 Icons.admin_panel_settings_outlined,
-                color: AppTheme.primary,
+                color: context.appColors.primary,
               ),
               title: const Text('Cuidar del equipo'),
               subtitle: const Text('Administrar tareas y ciclos'),
@@ -230,11 +244,14 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   horizontal: 16,
                   vertical: 4,
                 ),
-                leading: const Icon(Icons.history, color: AppTheme.primary),
+                leading: Icon(Icons.history, color: context.appColors.primary),
                 title: const Text('Mi actividad'),
-                subtitle: const Text(
+                subtitle: Text(
                   'Tus solicitudes y sus resultados',
-                  style: TextStyle(fontSize: 12, color: Color(0xFFB8B9C9)),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: context.appColors.onSurfaceVariant,
+                  ),
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: isSigningOut
@@ -245,18 +262,18 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       ),
               ),
               SwitchListTile.adaptive(
-                secondary: const Icon(
+                secondary: Icon(
                   Icons.notifications_none,
-                  color: AppTheme.primary,
+                  color: context.appColors.primary,
                 ),
                 title: const Text('Avisos de revisión'),
                 subtitle: Text(
                   data.isSaving
                       ? 'Guardando preferencia…'
                       : 'Preferencia para solicitudes y decisiones',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    color: Color(0xFFB8B9C9),
+                    color: context.appColors.onSurfaceVariant,
                   ),
                 ),
                 value: user.notificationsEnabled,
@@ -276,12 +293,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             liveRegion: true,
             child: Text(
               data.errorMessage!,
-              style: const TextStyle(color: Color(0xFFF3A69B)),
+              style: TextStyle(color: context.appColors.error),
             ),
           ),
         ],
         const SizedBox(height: 20),
-        const Card(
+        Card(
           margin: EdgeInsets.zero,
           child: Padding(
             padding: EdgeInsets.all(18),
@@ -292,7 +309,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   children: [
                     Icon(
                       Icons.verified_user_outlined,
-                      color: AppTheme.primary,
+                      color: context.appColors.primary,
                       size: 20,
                     ),
                     SizedBox(width: 10),
@@ -303,7 +320,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 Text(
                   'Solo suman las tareas aprobadas del ciclo activo. Las pendientes y rechazadas no cuentan.',
                   style: TextStyle(
-                    color: Color(0xFFB8B9C9),
+                    color: context.appColors.onSurfaceVariant,
                     fontSize: 12,
                     height: 1.5,
                   ),
@@ -312,7 +329,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 Text(
                   'No puedes aprobar tus propias tareas. Cada nuevo ciclo empieza una nueva clasificación.',
                   style: TextStyle(
-                    color: Color(0xFFB8B9C9),
+                    color: context.appColors.onSurfaceVariant,
                     fontSize: 12,
                     height: 1.5,
                   ),

@@ -34,7 +34,7 @@ class AdminScaffold extends StatelessWidget {
           children: [
             Text(
               subtitle,
-              style: const TextStyle(color: AppTheme.primary, fontSize: 10),
+              style: TextStyle(color: context.appColors.primary, fontSize: 10),
             ),
             const SizedBox(height: 4),
             Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -66,7 +66,9 @@ class AdminInfo extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
-      color: warning ? const Color(0xFF423B2F) : const Color(0xFF39334F),
+      color: warning
+          ? context.statusColors.pendingContainer
+          : context.appColors.primaryContainer,
       borderRadius: BorderRadius.circular(14),
     ),
     child: Row(
@@ -75,7 +77,9 @@ class AdminInfo extends StatelessWidget {
         Icon(
           Icons.info_outline,
           size: 18,
-          color: warning ? const Color(0xFFF2C978) : AppTheme.primary,
+          color: warning
+              ? context.statusColors.pending
+              : context.appColors.primary,
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -83,8 +87,8 @@ class AdminInfo extends StatelessWidget {
             message,
             style: TextStyle(
               color: warning
-                  ? const Color(0xFFF2C978)
-                  : const Color(0xFFB8B9C9),
+                  ? context.statusColors.pending
+                  : context.appColors.onSurfaceVariant,
               fontSize: 12,
               height: 1.5,
             ),

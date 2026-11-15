@@ -186,7 +186,51 @@ Los formularios conservan claves de Flutter para validar los campos. Tener
 un `ConsumerStatefulWidget` permite gestionar el ciclo de vida del formulario.
 El estado editable se actualiza por Riverpod.
 
-## 7. Rúbrica del proyecto final
+## 7. Tipografía y apariencia
+
+[AppTheme](../lib/core/theme/app_theme.dart) construye dos instancias de
+`ThemeData` con Material 3. `AppTheme._build()` define el esquema de colores
+para cada brillo. Las pantallas consumen `context.appColors` para superficies,
+texto y errores, y `context.statusColors` para estados aprobados y pendientes.
+`AppStatusColors` es una `ThemeExtension` para que Flutter interpole estos
+colores junto con el tema principal. Los iconos personalizados y la gráfica
+también toman su color del tema activo.
+
+Las dos paletas usan **DM Sans** como familia principal. El archivo variable
+está incluido en [assets/fonts/dm_sans](../assets/fonts/dm_sans/) y se registra
+en [pubspec.yaml](../pubspec.yaml). Flutter puede cargarlo sin pedir la fuente
+a un servidor. El proyecto incluye [su licencia OFL](../assets/fonts/dm_sans/OFL.txt).
+
+```mermaid
+flowchart LR
+    Profile["Perfil · Modo oscuro"] --> Mode["ThemeModeController.setDarkMode"]
+    Mode --> State["themeModeProvider"]
+    State --> App["MaterialApp.router"]
+    App --> UI["Pantallas y componentes"]
+    Mode --> Store["shared_preferences · appearance.theme"]
+    Store --> Startup["loadThemePreferences al arrancar"]
+    Startup --> State
+```
+
+El interruptor de [Perfil](../lib/features/profile/presentation/profile_page.dart)
+llama a `setDarkMode()`. El controlador actualiza Riverpod de inmediato y
+guarda la selección localmente en orden. `loadThemePreferences()` lee el
+valor antes de arrancar la interfaz. La preferencia es del dispositivo o
+navegador y se mantiene al cambiar de cuenta. La app empieza en oscuro si
+todavía no hay una selección guardada o si falla la lectura.
+
+```dart
+theme: AppTheme.light,
+darkTheme: AppTheme.dark,
+themeMode: ref.watch(themeModeProvider),
+```
+
+Para revisar el flujo, abre **Perfil → Modo oscuro**, cambia de tema, visita
+Tareas o Ranking y vuelve a abrir la app. La prueba en
+[`test/profile_test.dart`](../test/profile_test.dart) comprueba el cambio
+global, la familia tipográfica y la restauración del valor guardado.
+
+## 8. Rúbrica del proyecto final
 
 | Requisito | Estado en este repositorio |
 |---|---|
@@ -197,13 +241,14 @@ El estado editable se actualiza por Riverpod.
 | Firebase Auth, alta por correo y dos proveedores | Parcial. Supabase Auth permite acceder con correo y contraseña para cuentas creadas previamente. Faltan alta desde la app, verificación, reenvío, recuperación y dos proveedores federados. Firebase Auth depende del alcance que acepte el maestro. |
 | Perfil y avatar sincronizado | Parcial. Perfil muestra datos e iniciales. Falta foto compartida con Tareas, foto del proveedor y permiso de edición para cuentas de correo. |
 | Estado con Riverpod | Implementado. Las ocho llamadas explícitas a `setState` fueron sustituidas. La búsqueda en `lib/` tampoco encontró usos explícitos de `ValueNotifier`. |
-| Tipografía, tema dinámico y onboarding | Pendiente. Hay un tema oscuro fijo. |
+| Tipografía y tema dinámico | Implementados. DM Sans viene incluida con la app y Perfil permite cambiar y recordar el modo claro u oscuro. |
+| Onboarding | Pendiente. |
 | Responsividad y widget avanzado | Parcial. Hay límites de ancho y pruebas en pantallas pequeñas. La adaptación a escritorio debe validarse. La gráfica de Ranking es candidata al 10% si el maestro la acepta. |
 | Sensor y mapa nativo | Pendiente. Biometría para confirmar el cierre de ciclo es una propuesta. El propósito y la ubicación del mapa dependen del alcance acordado. |
 | Pagos o suscripciones | Pendiente. Stripe PaymentSheet es una opción para mostrar un formulario nativo de pago en modo de pruebas. También falta definir si se evaluará pedido simulado o tres planes. |
 | Entrega y estabilidad | Parcial. Hay Git, pruebas y documentación. Faltan el reporte final, APK de entrega y ensayo completo. |
 
-## 8. Cómo ejecutar y probar
+## 9. Cómo ejecutar y probar
 
 ```powershell
 flutter pub get
@@ -239,7 +284,7 @@ Para la publicación web, consultar [Firebase Hosting](firebase_hosting_setup.md
 Para la activación real de avisos y las pruebas SQL y Deno, consultar las
 [instrucciones de push](push_notifications_setup.md).
 
-## 9. Decisiones pendientes y mantenimiento
+## 10. Decisiones pendientes y mantenimiento
 
 Conviene conservar Supabase mientras se valida la rúbrica. Las interfaces de
 repositorio permiten reutilizar la UI si cambia el proveedor. Migrar el flujo
@@ -249,8 +294,8 @@ Database en un módulo acotado, conviene acordar ese alcance antes de
 implementar un segundo modelo de datos.
 
 **Registro del 14 de noviembre de 2026.** Se migró a Riverpod el estado de
-visibilidad de contraseña y del editor de tareas. El cambio final de esta
-iteración se limita a esos dos formularios y este manual.
+visibilidad de contraseña y del editor de tareas. Después se añadió DM Sans
+y el cambio claro/oscuro persistente desde Perfil.
 
 En cada cambio del proyecto, actualizar este archivo en la misma revisión.
 Explicar el flujo o método afectado, dónde vive en el código, qué requisito

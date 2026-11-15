@@ -65,15 +65,15 @@ class _AppNavigationBarState extends ConsumerState<AppNavigationBar> {
         ),
         NavigationDestination(
           icon: Badge(
-            backgroundColor: AppTheme.primary,
-            textColor: AppTheme.background,
+            backgroundColor: context.appColors.primary,
+            textColor: context.appColors.onPrimary,
             isLabelVisible: count > 0,
             label: Text('$count'),
             child: const Icon(Icons.check_circle_outline),
           ),
           selectedIcon: Badge(
-            backgroundColor: AppTheme.primary,
-            textColor: AppTheme.background,
+            backgroundColor: context.appColors.primary,
+            textColor: context.appColors.onPrimary,
             isLabelVisible: count > 0,
             label: Text('$count'),
             child: const Icon(Icons.check_circle),

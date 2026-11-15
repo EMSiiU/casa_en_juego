@@ -57,8 +57,8 @@ class TaskCatalogPage extends ConsumerWidget {
                 children: [
                   Text(
                     '${items.length} tareas · ${items.where((task) => task.isActive).length} disponibles para registrar',
-                    style: const TextStyle(
-                      color: Color(0xFFB8B9C9),
+                    style: TextStyle(
+                      color: context.appColors.onSurfaceVariant,
                       fontSize: 12,
                     ),
                   ),
@@ -87,14 +87,14 @@ class TaskCatalogPage extends ConsumerWidget {
                             '${task.points} puntos · ${task.isActive ? 'Activa' : 'Inactiva'} · ${task.isDailyLimited ? 'Una vez al día' : 'Repetible'}',
                             style: TextStyle(
                               color: task.isActive
-                                  ? const Color(0xFF91D5C6)
-                                  : AppTheme.secondaryText,
+                                  ? context.statusColors.approved
+                                  : context.appColors.outline,
                               fontSize: 12,
                             ),
                           ),
-                          trailing: const Icon(
+                          trailing: Icon(
                             Icons.edit_outlined,
-                            color: AppTheme.primary,
+                            color: context.appColors.primary,
                             size: 22,
                           ),
                           onTap: busy

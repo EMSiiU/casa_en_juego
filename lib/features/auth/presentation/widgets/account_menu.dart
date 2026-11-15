@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:casa_en_juego/core/theme/app_theme.dart';
 
 import '../../models/auth_failure.dart';
 import '../../providers/auth_providers.dart';
@@ -43,8 +44,8 @@ class AccountMenu extends ConsumerWidget {
         const PopupMenuItem(value: 'signOut', child: Text('Cerrar sesión')),
       ],
       child: CircleAvatar(
-        backgroundColor: const Color(0xFF39334F),
-        foregroundColor: Colors.white,
+        backgroundColor: context.appColors.primaryContainer,
+        foregroundColor: context.appColors.onSurface,
         child: authAction.isLoading
             ? const SizedBox(
                 width: 20,

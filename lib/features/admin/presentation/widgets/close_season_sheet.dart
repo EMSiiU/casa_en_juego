@@ -28,17 +28,17 @@ class CloseSeasonSheet extends ConsumerWidget {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 24),
                   decoration: BoxDecoration(
-                    color: AppTheme.secondaryText,
+                    color: context.appColors.outline,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
               ),
-              const Align(
+              Align(
                 alignment: Alignment.centerLeft,
                 child: Icon(
                   Icons.inventory_2_outlined,
                   size: 40,
-                  color: Color(0xFFF3A69B),
+                  color: context.appColors.error,
                 ),
               ),
               const SizedBox(height: 20),
@@ -52,7 +52,10 @@ class CloseSeasonSheet extends ConsumerWidget {
               const SizedBox(height: 16),
               Text(
                 'El ranking y los ${summary.approvedPoints} puntos aprobados se conservarán. Ya no se podrán registrar ni revisar tareas en este ciclo.',
-                style: const TextStyle(color: Color(0xFFB8B9C9), height: 1.5),
+                style: TextStyle(
+                  color: context.appColors.onSurfaceVariant,
+                  height: 1.5,
+                ),
               ),
               const SizedBox(height: 16),
               AdminInfo(
@@ -62,10 +65,10 @@ class CloseSeasonSheet extends ConsumerWidget {
                 warning: summary.pendingCount > 0,
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'El cierre no adjudica puntos ni traslada solicitudes al siguiente ciclo. Las pendientes quedarán sin resolver.',
                 style: TextStyle(
-                  color: Color(0xFFB8B9C9),
+                  color: context.appColors.onSurfaceVariant,
                   fontSize: 12,
                   height: 1.5,
                 ),
@@ -74,7 +77,7 @@ class CloseSeasonSheet extends ConsumerWidget {
                 const SizedBox(height: 16),
                 Text(
                   action.errorMessage!,
-                  style: const TextStyle(color: Color(0xFFF3A69B)),
+                  style: TextStyle(color: context.appColors.error),
                 ),
               ],
               const SizedBox(height: 24),
@@ -90,8 +93,8 @@ class CloseSeasonSheet extends ConsumerWidget {
                         }
                       },
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFF3A69B),
-                  foregroundColor: AppTheme.background,
+                  backgroundColor: context.appColors.error,
+                  foregroundColor: context.appColors.onError,
                 ),
                 child: Text(action.isBusy ? 'Finalizando…' : 'Finalizar ciclo'),
               ),

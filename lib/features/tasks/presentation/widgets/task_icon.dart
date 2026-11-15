@@ -12,13 +12,15 @@ class TaskIcon extends StatelessWidget {
     width: size,
     height: size,
     decoration: BoxDecoration(
-      color: AppTheme.primary.withValues(alpha: 0.10),
+      color: context.appColors.primary.withValues(alpha: 0.10),
       borderRadius: BorderRadius.circular(12),
     ),
     child: iconName == 'sneakers'
         ? Padding(
             padding: EdgeInsets.all(size * 0.20),
-            child: const CustomPaint(painter: _SneakerPainter()),
+            child: CustomPaint(
+              painter: _SneakerPainter(context.appColors.primary),
+            ),
           )
         : Icon(
             switch (iconName) {
@@ -35,20 +37,22 @@ class TaskIcon extends StatelessWidget {
               'personalItems' => Icons.inventory_2_outlined,
               _ => Icons.task_alt,
             },
-            color: AppTheme.primary,
+            color: context.appColors.primary,
             size: size * 0.55,
           ),
   );
 }
 
 class _SneakerPainter extends CustomPainter {
-  const _SneakerPainter();
+  const _SneakerPainter(this.color);
+
+  final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
     canvas.scale(size.width / 24, size.height / 24);
     final paint = Paint()
-      ..color = AppTheme.primary
+      ..color = color
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.6
       ..strokeJoin = StrokeJoin.round
@@ -74,5 +78,6 @@ class _SneakerPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _SneakerPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _SneakerPainter oldDelegate) =>
+      oldDelegate.color != color;
 }

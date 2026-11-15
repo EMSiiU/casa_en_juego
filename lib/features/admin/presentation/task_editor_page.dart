@@ -151,7 +151,7 @@ class _TaskFormState extends ConsumerState<_TaskForm> {
             children: [
               Card(
                 margin: EdgeInsets.zero,
-                color: const Color(0xFF39334F),
+                color: context.appColors.primaryContainer,
                 child: ListTile(
                   leading: TaskIcon(iconName: form.iconName),
                   title: Text(
@@ -218,7 +218,7 @@ class _TaskFormState extends ConsumerState<_TaskForm> {
                             decoration: BoxDecoration(
                               border: Border.all(
                                 color: form.iconName == option.name
-                                    ? AppTheme.primary
+                                    ? context.appColors.primary
                                     : Colors.transparent,
                                 width: 2,
                               ),
@@ -270,7 +270,7 @@ class _TaskFormState extends ConsumerState<_TaskForm> {
                   liveRegion: true,
                   child: Text(
                     form.validationError ?? action.errorMessage!,
-                    style: const TextStyle(color: Color(0xFFF3A69B)),
+                    style: TextStyle(color: context.appColors.error),
                   ),
                 ),
               ],

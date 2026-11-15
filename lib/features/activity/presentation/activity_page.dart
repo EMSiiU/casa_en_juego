@@ -70,7 +70,7 @@ class _ActivityPageState extends ConsumerState<ActivityPage> {
           children: [
             Text(
               '${user?.name.toUpperCase() ?? ''} · HISTORIAL',
-              style: const TextStyle(color: AppTheme.primary, fontSize: 10),
+              style: TextStyle(color: context.appColors.primary, fontSize: 10),
             ),
             const SizedBox(height: 4),
             const Text(
@@ -100,23 +100,23 @@ class _ActivityPageState extends ConsumerState<ActivityPage> {
                             Container(
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF26413E),
+                                color: context.statusColors.approvedContainer,
                                 borderRadius: BorderRadius.circular(14),
                               ),
-                              child: const Row(
+                              child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Icon(
                                     Icons.check_circle_outline,
                                     size: 18,
-                                    color: Color(0xFF91D5C6),
+                                    color: context.statusColors.approved,
                                   ),
                                   SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
                                       'Enviada a revisión. La decisión aparecerá aquí cuando se resuelva.',
                                       style: TextStyle(
-                                        color: Color(0xFF91D5C6),
+                                        color: context.statusColors.approved,
                                         fontSize: 12,
                                         height: 1.5,
                                       ),
@@ -143,15 +143,18 @@ class _ActivityPageState extends ConsumerState<ActivityPage> {
                                         horizontal: 4,
                                       ),
                                       side: BorderSide.none,
-                                      backgroundColor: AppTheme.surface,
+                                      backgroundColor:
+                                          context.appColors.surface,
                                       label: Text(option.label),
                                       selected: option == filter,
                                       showCheckmark: false,
-                                      selectedColor: AppTheme.primary,
+                                      selectedColor: context.appColors.primary,
                                       labelStyle: TextStyle(
                                         color: option == filter
-                                            ? AppTheme.background
-                                            : const Color(0xFFB8B9C9),
+                                            ? context.appColors.onPrimary
+                                            : context
+                                                  .appColors
+                                                  .onSurfaceVariant,
                                         fontSize: 11,
                                       ),
                                       onSelected: (_) => ref
@@ -163,10 +166,10 @@ class _ActivityPageState extends ConsumerState<ActivityPage> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          const Text(
+                          Text(
                             'Solicitudes recientes · Fechas en UTC−5',
                             style: TextStyle(
-                              color: Color(0xFFB8B9C9),
+                              color: context.appColors.onSurfaceVariant,
                               fontSize: 11,
                             ),
                           ),
@@ -192,10 +195,10 @@ class _ActivityPageState extends ConsumerState<ActivityPage> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.cloud_off_outlined,
                                 size: 36,
-                                color: AppTheme.primary,
+                                color: context.appColors.primary,
                               ),
                               const SizedBox(height: 16),
                               Text(
@@ -236,10 +239,10 @@ class _ActivityPageState extends ConsumerState<ActivityPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(
+                Icon(
                   Icons.history_outlined,
                   size: 40,
-                  color: AppTheme.primary,
+                  color: context.appColors.primary,
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -250,10 +253,10 @@ class _ActivityPageState extends ConsumerState<ActivityPage> {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 10),
-                const Text(
+                Text(
                   'Las tareas que registres y sus resultados aparecerán aquí.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Color(0xFFB8B9C9)),
+                  style: TextStyle(color: context.appColors.onSurfaceVariant),
                 ),
               ],
             ),
@@ -305,10 +308,13 @@ class _ActivityPageState extends ConsumerState<ActivityPage> {
                         ),
                 ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Los puntos rechazados o pendientes no se suman.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Color(0xFFB8B9C9), fontSize: 11),
+                style: TextStyle(
+                  color: context.appColors.onSurfaceVariant,
+                  fontSize: 11,
+                ),
               ),
             ],
           ),

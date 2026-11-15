@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/constants/supabase_config.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_mode_provider.dart';
 import 'features/notifications/presentation/notification_host.dart';
 import 'features/notifications/providers/notification_providers.dart';
 import 'features/notifications/repositories/push_gateway.dart';
@@ -16,9 +17,13 @@ Future<void> main() async {
     publishableKey: SupabaseConfig.publishableKey,
   );
   final pushReady = await initializePushNotifications();
+  final themePreferences = await loadThemePreferences();
   runApp(
     ProviderScope(
-      overrides: [pushRuntimeReadyProvider.overrideWithValue(pushReady)],
+      overrides: [
+        pushRuntimeReadyProvider.overrideWithValue(pushReady),
+        themePreferencesProvider.overrideWithValue(themePreferences),
+      ],
       child: const CasaEnJuegoApp(),
     ),
   );
@@ -33,9 +38,9 @@ class CasaEnJuegoApp extends ConsumerWidget {
       child: MaterialApp.router(
         title: 'Casa en Juego',
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.dark,
+        theme: AppTheme.light,
         darkTheme: AppTheme.dark,
-        themeMode: ThemeMode.dark,
+        themeMode: ref.watch(themeModeProvider),
         routerConfig: ref.watch(appRouterProvider),
       ),
     );

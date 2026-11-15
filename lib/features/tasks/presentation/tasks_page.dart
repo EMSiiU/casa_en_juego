@@ -135,10 +135,10 @@ class _TasksPageState extends ConsumerState<TasksPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'CASA EN JUEGO',
                               style: TextStyle(
-                                color: AppTheme.primary,
+                                color: context.appColors.primary,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -200,18 +200,21 @@ class _TasksPageState extends ConsumerState<TasksPage> {
             Expanded(
               child: Text(
                 data.season!.name,
-                style: const TextStyle(color: Color(0xFFB8B9C9)),
+                style: TextStyle(color: context.appColors.onSurfaceVariant),
               ),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: const Color(0xFF26413E),
+                color: context.statusColors.approvedContainer,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Text(
+              child: Text(
                 '● Ciclo activo',
-                style: TextStyle(color: Color(0xFF91D5C6), fontSize: 11),
+                style: TextStyle(
+                  color: context.statusColors.approved,
+                  fontSize: 11,
+                ),
               ),
             ),
           ],
@@ -220,7 +223,7 @@ class _TasksPageState extends ConsumerState<TasksPage> {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: const Color(0xFF39334F),
+            color: context.appColors.primaryContainer,
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
@@ -234,26 +237,26 @@ class _TasksPageState extends ConsumerState<TasksPage> {
                         children: [
                           TextSpan(
                             text: '$points',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 42,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: context.appColors.onSurface,
                             ),
                           ),
-                          const TextSpan(
+                          TextSpan(
                             text: ' puntos',
                             style: TextStyle(
-                              color: AppTheme.primary,
+                              color: context.appColors.primary,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const Text(
+                    Text(
                       'APROBADOS',
                       style: TextStyle(
-                        color: AppTheme.primary,
+                        color: context.appColors.primary,
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
                       ),
@@ -263,18 +266,18 @@ class _TasksPageState extends ConsumerState<TasksPage> {
                       position == null
                           ? 'Tu próxima tarea puede sumar. ¡Vamos!'
                           : 'Vas en $position.º lugar. ¡Sigue así!',
-                      style: const TextStyle(
-                        color: Color(0xFFB8B9C9),
+                      style: TextStyle(
+                        color: context.appColors.onSurfaceVariant,
                         fontSize: 12,
                       ),
                     ),
                   ],
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.emoji_events_outlined,
                 size: 38,
-                color: AppTheme.primary,
+                color: context.appColors.primary,
               ),
             ],
           ),
@@ -318,7 +321,7 @@ class _TasksPageState extends ConsumerState<TasksPage> {
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: Material(
-                color: AppTheme.surface,
+                color: context.appColors.surface,
                 borderRadius: BorderRadius.circular(16),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
@@ -342,9 +345,9 @@ class _TasksPageState extends ConsumerState<TasksPage> {
                                           true
                                       ? 'Ya enviada hoy · Disponible mañana'
                                       : 'Una vez al día',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 11,
-                                    color: Color(0xFFB8B9C9),
+                                    color: context.appColors.onSurfaceVariant,
                                   ),
                                 ),
                             ],
@@ -353,7 +356,7 @@ class _TasksPageState extends ConsumerState<TasksPage> {
                         const SizedBox(width: 8),
                         Text(
                           '+${task.points}',
-                          style: const TextStyle(color: AppTheme.primary),
+                          style: TextStyle(color: context.appColors.primary),
                         ),
                         IconButton(
                           tooltip: 'Registrar ${task.name}',
@@ -374,10 +377,13 @@ class _TasksPageState extends ConsumerState<TasksPage> {
               ),
             ),
         const SizedBox(height: 10),
-        const Text(
+        Text(
           'Registra lo que termines. Otro miembro lo revisará.',
           textAlign: TextAlign.center,
-          style: TextStyle(color: Color(0xFFB8B9C9), fontSize: 12),
+          style: TextStyle(
+            color: context.appColors.onSurfaceVariant,
+            fontSize: 12,
+          ),
         ),
       ],
     );
@@ -394,12 +400,12 @@ class _PendingBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF423B2F),
+        color: context.statusColors.pendingContainer,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [
-          const Icon(Icons.schedule, color: Color(0xFFF2C978), size: 22),
+          Icon(Icons.schedule, color: context.statusColors.pending, size: 22),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -407,8 +413,8 @@ class _PendingBanner extends StatelessWidget {
               children: [
                 Text(
                   '${logs.length} ${logs.length == 1 ? 'tarea' : 'tareas'} en revisión · +$points pts',
-                  style: const TextStyle(
-                    color: Color(0xFFF2C978),
+                  style: TextStyle(
+                    color: context.statusColors.pending,
                     fontSize: 12,
                   ),
                 ),
@@ -417,8 +423,8 @@ class _PendingBanner extends StatelessWidget {
                   logs.length == 1
                       ? '${logs.first.taskName} · Aún no suma'
                       : 'Aún no suman al ranking',
-                  style: const TextStyle(
-                    color: Color(0xFFCBC4B8),
+                  style: TextStyle(
+                    color: context.statusColors.pending,
                     fontSize: 11,
                   ),
                 ),
@@ -450,7 +456,7 @@ class _StatusCard extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
-          Icon(icon, size: 36, color: AppTheme.primary),
+          Icon(icon, size: 36, color: context.appColors.primary),
           const SizedBox(height: 16),
           if (title != null) ...[
             Text(
@@ -463,7 +469,10 @@ class _StatusCard extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Color(0xFFB8B9C9), height: 1.5),
+            style: TextStyle(
+              color: context.appColors.onSurfaceVariant,
+              height: 1.5,
+            ),
           ),
           if (action != null) ...[const SizedBox(height: 16), action!],
         ],

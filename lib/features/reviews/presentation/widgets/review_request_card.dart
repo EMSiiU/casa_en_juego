@@ -31,13 +31,16 @@ class ReviewRequestCard extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 20,
-                backgroundColor: const Color(0xFF39334F),
+                backgroundColor: context.appColors.primaryContainer,
                 child: Text(
                   request.requesterName.characters
                       .take(2)
                       .toString()
                       .toUpperCase(),
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                  style: TextStyle(
+                    color: context.appColors.onSurface,
+                    fontSize: 12,
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -47,9 +50,12 @@ class ReviewRequestCard extends StatelessWidget {
                   children: [
                     Text(request.requesterName),
                     const SizedBox(height: 3),
-                    const Text(
+                    Text(
                       'Solicita tu revisión',
-                      style: TextStyle(color: Color(0xFFB8B9C9), fontSize: 11),
+                      style: TextStyle(
+                        color: context.appColors.onSurfaceVariant,
+                        fontSize: 11,
+                      ),
                     ),
                   ],
                 ),
@@ -57,12 +63,15 @@ class ReviewRequestCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF423B2F),
+                  color: context.statusColors.pendingContainer,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Text(
+                child: Text(
                   'Pendiente',
-                  style: TextStyle(color: Color(0xFFF2C978), fontSize: 10),
+                  style: TextStyle(
+                    color: context.statusColors.pending,
+                    fontSize: 10,
+                  ),
                 ),
               ),
             ],
@@ -86,8 +95,8 @@ class ReviewRequestCard extends StatelessWidget {
                     const SizedBox(height: 5),
                     Text(
                       '+${request.pointsSnapshot} puntos si la apruebas',
-                      style: const TextStyle(
-                        color: AppTheme.primary,
+                      style: TextStyle(
+                        color: context.appColors.primary,
                         fontSize: 12,
                       ),
                     ),
@@ -99,12 +108,15 @@ class ReviewRequestCard extends StatelessWidget {
           const SizedBox(height: 18),
           Text(
             ActivityDateFormatter.format(request.requestedAt),
-            style: const TextStyle(color: Color(0xFFB8B9C9), fontSize: 11),
+            style: TextStyle(
+              color: context.appColors.onSurfaceVariant,
+              fontSize: 11,
+            ),
           ),
           const SizedBox(height: 5),
           Text(
             request.seasonName,
-            style: const TextStyle(color: AppTheme.secondaryText, fontSize: 11),
+            style: TextStyle(color: context.appColors.outline, fontSize: 11),
           ),
           const SizedBox(height: 16),
           if (isProcessing)
@@ -132,8 +144,8 @@ class ReviewRequestCard extends StatelessWidget {
                   icon: const Icon(Icons.close, size: 18),
                   label: const Text('Rechazar'),
                   style: OutlinedButton.styleFrom(
-                    backgroundColor: const Color(0xFF323444),
-                    foregroundColor: Colors.white,
+                    backgroundColor: context.appColors.surfaceContainerHighest,
+                    foregroundColor: context.appColors.onSurface,
                     side: BorderSide.none,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),

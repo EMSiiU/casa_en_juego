@@ -40,7 +40,7 @@ class TaskSubmissionSheet extends ConsumerWidget {
                   height: 4,
                   margin: const EdgeInsets.only(top: 12, bottom: 20),
                   decoration: BoxDecoration(
-                    color: AppTheme.secondaryText,
+                    color: context.appColors.outline,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -52,7 +52,7 @@ class TaskSubmissionSheet extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       '+${task.points} puntos pendientes',
-                      style: const TextStyle(color: Color(0xFFF2C978)),
+                      style: TextStyle(color: context.statusColors.pending),
                     ),
                   ),
                 ],
@@ -64,14 +64,17 @@ class TaskSubmissionSheet extends ConsumerWidget {
                     ?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Otro miembro debe aprobar tu tarea. Tu solicitud quedará pendiente de revisión.',
-                style: TextStyle(color: Color(0xFFB8B9C9), height: 1.5),
+                style: TextStyle(
+                  color: context.appColors.onSurfaceVariant,
+                  height: 1.5,
+                ),
               ),
               const SizedBox(height: 16),
               Text(
                 'Estos ${task.points} puntos no se suman hasta que la solicitud sea aprobada.',
-                style: const TextStyle(color: Color(0xFFF2C978)),
+                style: TextStyle(color: context.statusColors.pending),
               ),
               if (action.hasError) ...[
                 const SizedBox(height: 16),
@@ -79,7 +82,7 @@ class TaskSubmissionSheet extends ConsumerWidget {
                   liveRegion: true,
                   child: Text(
                     TaskFailure.messageFor(action.error!, submitting: true),
-                    style: const TextStyle(color: Color(0xFFF3A69B)),
+                    style: TextStyle(color: context.appColors.error),
                   ),
                 ),
               ],
@@ -113,7 +116,7 @@ class TaskSubmissionSheet extends ConsumerWidget {
                     : () => Navigator.of(context).pop(false),
                 child: Text(
                   action.hasError ? 'Volver al inicio' : 'Cancelar',
-                  style: const TextStyle(color: AppTheme.primary),
+                  style: TextStyle(color: context.appColors.primary),
                 ),
               ),
             ],
