@@ -36,6 +36,7 @@ async function main() {
     `);
     await db.exec(load("phase_2.sql"));
     await db.exec(load("migrations/20261114000100_add_personal_accounts.sql"));
+    await db.exec(load("migrations/20261114000200_rename_personal_profile.sql"));
 
     const asUser = async (id) => {
       await db.exec("set role authenticated");
@@ -50,6 +51,22 @@ async function main() {
       { name: "Elena", role: "sibling", is_household_member: false },
     ]);
     assert.deepEqual(await rows("select id from public.tasks"), []);
+    assert.deepEqual(await rows("select public.rename_my_profile('  Elena Marín  ') as name"), [
+      { name: "Elena Marín" },
+    ]);
+    assert.deepEqual(await rows("select name from public.users"), [{ name: "Elena Marín" }]);
+    await assert.rejects(
+      () => db.exec("select public.rename_my_profile(repeat('x', 101))"),
+      /PROFILE_NAME_INVALID/,
+    );
+    await assert.rejects(
+      () => db.exec("select public.rename_my_profile(E'\\t  ')"),
+      /PROFILE_NAME_INVALID/,
+    );
+    await assert.rejects(
+      () => db.exec("update public.users set name = 'Otra persona'"),
+      /permission denied/,
+    );
     await assert.rejects(
       () => db.exec("insert into public.seasons (name) values ('Otro ciclo')"),
       /row-level security/,
@@ -65,14 +82,21 @@ async function main() {
       /ACCOUNT_EMAIL_UNVERIFIED/,
     );
     assert.deepEqual(await rows("select id from public.users"), []);
+    await assert.rejects(
+      () => db.exec("select public.rename_my_profile('Nombre válido')"),
+      /ACCOUNT_EMAIL_UNVERIFIED/,
+    );
 
     await asUser(member);
     assert.equal((await rows("select id from public.users")).length, 2);
     assert.equal((await rows("select id from public.tasks")).length, 3);
+    assert.deepEqual(await rows("select name from public.users order by name"), [
+      { name: "Ana" }, { name: "Carlos" },
+    ]);
     await asUser(admin);
     await db.exec("insert into public.seasons (name) values ('Ciclo existente')");
     assert.equal((await rows("select id from public.seasons")).length, 1);
-    console.log("PASS: verified profile creation, membership isolation and legacy access");
+    console.log("PASS: verified profile creation and rename, membership isolation and legacy access");
   } finally {
     await db.close();
   }

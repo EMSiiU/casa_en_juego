@@ -4,6 +4,7 @@ import 'package:casa_en_juego/core/router/app_router.dart';
 import 'package:casa_en_juego/core/theme/theme_mode_provider.dart';
 import 'package:casa_en_juego/features/auth/models/app_user.dart';
 import 'package:casa_en_juego/features/auth/models/auth_failure.dart';
+import 'package:casa_en_juego/features/auth/presentation/widgets/account_avatar.dart';
 import 'package:casa_en_juego/features/auth/providers/auth_providers.dart';
 import 'package:casa_en_juego/features/profile/models/profile_failure.dart';
 import 'package:casa_en_juego/features/profile/presentation/profile_page.dart';
@@ -82,6 +83,76 @@ Future<void> togglePreference(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('A saved name updates Profile and the Tasks greeting', (
+    tester,
+  ) async {
+    final repository = FakeProfileRepository();
+    final container = await startProfile(tester, repository);
+    await tester.tap(find.text('Editar nombre'));
+    await tester.pumpAndSettle();
+    final field = find.byType(TextFormField);
+    await tester.enterText(field, '  ');
+    await tester.tap(find.text('Guardar nombre'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Escribe un nombre de 1 a 100 caracteres.'),
+      findsOneWidget,
+    );
+    expect(repository.savedName, isNull);
+    await tester.enterText(field, '  Ana Marín  ');
+    repository.pendingSave = Completer<void>();
+    await tester.tap(find.text('Guardar nombre'));
+    await tester.pumpAndSettle();
+    container.read(appRouterProvider).go('/tasks');
+    await tester.pumpAndSettle();
+    expect(find.text('¡Hola, Ana!'), findsOneWidget);
+    repository.pendingSave!.complete();
+    await tester.pumpAndSettle();
+    expect(repository.savedName, 'Ana Marín');
+    expect(find.text('¡Hola, Ana Marín!'), findsOneWidget);
+    expect(find.text('AM'), findsOneWidget);
+
+    container.read(appRouterProvider).go('/profile');
+    await tester.pumpAndSettle();
+    expect(find.text('Ana Marín'), findsOneWidget);
+  });
+
+  testWidgets(
+    'Profile and Tasks share the provider photo and fallback initials',
+    (tester) async {
+      const url = 'https://avatars.githubusercontent.com/u/1';
+      final auth = FakeAuthRepository()
+        ..user = const AppUser(
+          id: 'member-id',
+          name: 'Ana',
+          email: 'ana@familia.es',
+          role: UserRole.sibling,
+          notificationsEnabled: true,
+          avatarUrl: url,
+        );
+      final container = await startProfile(
+        tester,
+        FakeProfileRepository(),
+        auth: auth,
+      );
+
+      void expectAvatar() {
+        expect(
+          tester.widget<AccountAvatar>(find.byType(AccountAvatar)).avatarUrl,
+          url,
+        );
+        expect(find.text('A'), findsOneWidget);
+      }
+
+      // Widget tests do not fetch real network images. The fallback stays visible.
+      expectAvatar();
+      container.read(appRouterProvider).go('/tasks');
+      await tester.pumpAndSettle();
+      expectAvatar();
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('Profile switches the whole app and restores the saved theme', (
     tester,
   ) async {

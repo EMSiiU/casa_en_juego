@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/router/app_navigation_bar.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_mode_provider.dart';
+import '../../auth/presentation/widgets/account_avatar.dart';
 import '../../auth/models/auth_failure.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../models/profile_failure.dart';
@@ -52,9 +53,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   Widget build(BuildContext context) {
     final profile = ref.watch(profileProvider);
     final authAction = ref.watch(authControllerProvider);
-    final isHouseholdMember =
-        ref.watch(currentUserProvider).asData?.value?.isHouseholdMember ??
-        false;
+    final sessionUser = ref.watch(currentUserProvider).asData?.value;
+    final isHouseholdMember = sessionUser?.isHouseholdMember ?? false;
     final isDark = ref.watch(themeModeProvider) == ThemeMode.dark;
     return Scaffold(
       appBar: AppBar(
@@ -113,7 +113,13 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                         ),
                       ),
                     ),
-                    data: (data) => _buildProfile(data, authAction.isLoading),
+                    data: (data) => _buildProfile(
+                      data,
+                      authAction.isLoading,
+                      sessionUser?.id == data.user.id
+                          ? sessionUser?.avatarUrl
+                          : null,
+                    ),
                   ),
                   const SizedBox(height: 20),
                   Card(
@@ -177,23 +183,75 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     );
   }
 
-  Widget _buildProfile(ProfileState data, bool isSigningOut) {
+  Future<void> _editName(String currentName) async {
+    final formKey = GlobalKey<FormState>();
+    final accountId = ref.read(currentUserProvider).asData?.value?.id;
+    var name = currentName;
+    final edited = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        void submit() {
+          if (formKey.currentState!.validate()) {
+            Navigator.of(context).pop(name.trim());
+          }
+        }
+
+        return AlertDialog(
+          title: const Text('Editar nombre'),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              initialValue: currentName,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              textInputAction: TextInputAction.done,
+              maxLength: 100,
+              decoration: const InputDecoration(labelText: 'Nombre'),
+              onChanged: (value) => name = value,
+              onFieldSubmitted: (_) => submit(),
+              validator: (value) {
+                final length = (value ?? '').trim().runes.length;
+                return length < 1 || length > 100
+                    ? 'Escribe un nombre de 1 a 100 caracteres.'
+                    : null;
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: submit,
+              child: const Text('Guardar nombre'),
+            ),
+          ],
+        );
+      },
+    );
+    if (edited != null &&
+        mounted &&
+        accountId != null &&
+        ref.read(currentUserProvider).asData?.value?.id == accountId) {
+      await ref.read(profileProvider.notifier).rename(edited);
+    }
+  }
+
+  Widget _buildProfile(
+    ProfileState data,
+    bool isSigningOut,
+    String? avatarUrl,
+  ) {
     final user = data.user;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Center(
-          child: CircleAvatar(
+          child: AccountAvatar(
+            name: user.name,
+            avatarUrl: avatarUrl,
             radius: 42,
-            backgroundColor: context.appColors.primaryContainer,
-            child: Text(
-              user.name.characters.take(2).toString().toUpperCase(),
-              style: TextStyle(
-                color: context.appColors.onSurface,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
           ),
         ),
         const SizedBox(height: 16),
@@ -201,6 +259,15 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           user.name,
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 27, fontWeight: FontWeight.bold),
+        ),
+        Center(
+          child: TextButton.icon(
+            onPressed: data.isSaving || isSigningOut
+                ? null
+                : () => _editName(user.name),
+            icon: const Icon(Icons.edit_outlined, size: 18),
+            label: const Text('Editar nombre'),
+          ),
         ),
         const SizedBox(height: 8),
         Text(

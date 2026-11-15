@@ -116,7 +116,7 @@ class _TasksPageState extends ConsumerState<TasksPage> {
         },
       );
     });
-    final name = user?.name ?? '';
+    final name = ref.watch(accountNameProvider) ?? '';
 
     return Scaffold(
       body: SafeArea(

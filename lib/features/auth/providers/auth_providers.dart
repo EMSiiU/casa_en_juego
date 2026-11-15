@@ -18,6 +18,28 @@ final currentUserProvider = StreamProvider<AppUser?>(
   retry: (retryCount, error) => null,
 );
 
+final accountNameProvider = NotifierProvider<AccountNameController, String?>(
+  AccountNameController.new,
+);
+
+class AccountNameController extends Notifier<String?> {
+  @override
+  String? build() => ref
+      .watch(
+        currentUserProvider.select((session) {
+          final user = session.asData?.value;
+          return (id: user?.id, name: user?.name);
+        }),
+      )
+      .name;
+
+  void applySavedName(AppUser user) {
+    if (ref.read(currentUserProvider).asData?.value?.id == user.id) {
+      state = user.name;
+    }
+  }
+}
+
 final authControllerProvider = AsyncNotifierProvider<AuthController, void>(
   AuthController.new,
 );

@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/app_user.dart';
 import '../models/auth_failure.dart';
+import '../models/provider_avatar.dart';
 import 'password_recovery.dart';
 
 abstract interface class AuthRepository {
@@ -31,26 +32,28 @@ class SupabaseAuthRepository implements AuthRepository {
   @override
   Stream<AppUser?> watchUser() {
     // Supabase emite initialSession al suscribirse y restaura la sesión local.
-    // Los refrescos de token no vuelven a consultar el mismo perfil.
+    // Los refrescos de token no consultan el perfil si la identidad y la foto siguen iguales.
     return _client.auth.onAuthStateChange
         .map((event) {
           final user = event.session?.user;
-          return user != null && user.emailConfirmedAt != null ? user.id : null;
+          return user != null && user.emailConfirmedAt != null
+              ? (id: user.id, avatarUrl: providerAvatarUrl(user))
+              : null;
         })
         .distinct()
-        .asyncMap((userId) async {
-          if (userId == null) return null;
-          var data = await _loadProfile(userId);
+        .asyncMap((identity) async {
+          if (identity == null) return null;
+          var data = await _loadProfile(identity.id);
           if (data == null) {
             await _client.rpc('ensure_personal_profile');
-            data = await _loadProfile(userId);
+            data = await _loadProfile(identity.id);
           }
           if (data == null) {
             throw const AuthFailure(
               'No pudimos cargar tu perfil. Intenta de nuevo.',
             );
           }
-          return AppUser.fromJson(data);
+          return AppUser.fromJson(data, avatarUrl: identity.avatarUrl);
         });
   }
 

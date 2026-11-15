@@ -4,6 +4,7 @@ import 'package:casa_en_juego/core/theme/app_theme.dart';
 
 import '../../models/auth_failure.dart';
 import '../../providers/auth_providers.dart';
+import 'account_avatar.dart';
 
 class AccountMenu extends ConsumerWidget {
   const AccountMenu({super.key});
@@ -22,15 +23,7 @@ class AccountMenu extends ConsumerWidget {
         );
       }
     });
-    final name = user?.name ?? '';
-    final initials = name
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((part) => part.isNotEmpty)
-        .take(2)
-        .map((part) => part.characters.first)
-        .join()
-        .toUpperCase();
+    final name = ref.watch(accountNameProvider) ?? '';
 
     return PopupMenuButton<String>(
       tooltip: 'Abrir cuenta',
@@ -43,23 +36,16 @@ class AccountMenu extends ConsumerWidget {
         ),
         const PopupMenuItem(value: 'signOut', child: Text('Cerrar sesión')),
       ],
-      child: CircleAvatar(
-        backgroundColor: context.appColors.primaryContainer,
-        foregroundColor: context.appColors.onSurface,
-        child: authAction.isLoading
-            ? const SizedBox(
+      child: authAction.isLoading
+          ? CircleAvatar(
+              backgroundColor: context.appColors.primaryContainer,
+              child: const SizedBox(
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : Text(
-                initials,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                ),
               ),
-      ),
+            )
+          : AccountAvatar(name: name, avatarUrl: user?.avatarUrl),
     );
   }
 }

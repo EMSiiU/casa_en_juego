@@ -22,6 +22,16 @@ void main() {
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     server.listen((request) async {
       requests.add(request.uri);
+      if (request.uri.path.endsWith('/rpc/rename_my_profile')) {
+        final values = jsonDecode(
+          await utf8.decoder.bind(request).join(),
+        ) as Map<String, dynamic>;
+        updates.add(values);
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(jsonEncode(values['p_name']));
+        await request.response.close();
+        return;
+      }
       if (request.method == 'PATCH') {
         final values = jsonDecode(
           await utf8.decoder.bind(request).join(),
@@ -61,6 +71,11 @@ void main() {
     expect(requests.single.queryParameters['id'], 'eq.member-id');
     expect(user.name, 'Ana');
     expect(user.notificationsEnabled, isTrue);
+  });
+  test('Rename sends only the name and reads the server result', () async {
+    expect(await repository.rename('Ana Marín'), 'Ana Marín');
+    expect(requests.single.path, '/rest/v1/rpc/rename_my_profile');
+    expect(updates.single, {'p_name': 'Ana Marín'});
   });
   test('Preference updates send only notifications_enabled and persist across reads', () async {
     final user = await repository.setNotifications(

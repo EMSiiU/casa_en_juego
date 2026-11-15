@@ -16,6 +16,16 @@ class FakeProfileRepository implements ProfileRepository {
   Completer<void>? pendingSave;
   int saveCalls = 0;
   String? savedUserId;
+  String? savedName;
+
+  @override
+  Future<String> rename(String name) async {
+    if (pendingSave != null) await pendingSave!.future;
+    if (saveError != null) throw saveError!;
+    savedName = name;
+    user = user.withName(name);
+    return name;
+  }
 
   @override
   Future<AppUser> loadProfile(String userId) async {
@@ -38,6 +48,8 @@ class FakeProfileRepository implements ProfileRepository {
       email: user.email,
       role: user.role,
       notificationsEnabled: enabled,
+      isHouseholdMember: user.isHouseholdMember,
+      avatarUrl: user.avatarUrl,
     );
     return user;
   }

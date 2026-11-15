@@ -5,6 +5,7 @@ import '../models/profile_failure.dart';
 
 abstract interface class ProfileRepository {
   Future<AppUser> loadProfile(String userId);
+  Future<String> rename(String name);
   Future<AppUser> setNotifications({
     required String userId,
     required bool enabled,
@@ -15,6 +16,10 @@ class SupabaseProfileRepository implements ProfileRepository {
   SupabaseProfileRepository(this._client);
   final SupabaseClient _client;
   static const _columns = 'id, name, email, role, notifications_enabled';
+
+  @override
+  Future<String> rename(String name) async =>
+      await _client.rpc<String>('rename_my_profile', params: {'p_name': name});
 
   @override
   Future<AppUser> loadProfile(String userId) async {

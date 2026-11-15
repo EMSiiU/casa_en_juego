@@ -65,7 +65,7 @@ las interfaces de repositorio por implementaciones de prueba.
    son rutas públicas. Las rutas `/admin` requieren rol de administrador.
 4. `ProfileController.setNotifications()` actualiza la preferencia guardada en
    PostgreSQL y sincroniza el estado de avisos. Perfil muestra nombre, correo,
-   rol, iniciales y acceso a Mi actividad.
+   rol, avatar e información del grupo cuando corresponde.
 5. `AuthController.signOut()` solicita a `NotificationSession.disconnect()`
    desvincular el dispositivo y luego cierra la sesión local de Supabase. Si la
    desvinculación falla, la app muestra un error y permite reintentar.
@@ -206,6 +206,51 @@ origen donde se inició OAuth.
 [Configuración de Google](https://supabase.com/docs/guides/auth/social-sign-in/auth-google)
 · [Configuración de GitHub](https://supabase.com/docs/guides/auth/social-sign-in/auth-github)
 · [URL de retorno en Supabase](https://supabase.com/docs/guides/auth/redirect-urls).
+
+### Nombre editable y foto del proveedor
+
+En **Perfil → Editar nombre**, el formulario valida un nombre de 1 a 100
+caracteres. `ProfileController.rename()` envía el nombre al repositorio,
+espera la confirmación de Supabase y publica el valor guardado en
+`accountNameProvider`. Así se actualizan el saludo de Tareas y las iniciales
+del menú de cuenta. El proveedor vuelve a leer el nombre cuando cambia de
+cuenta. El guardado en curso termina aunque se navegue a Tareas.
+
+```mermaid
+flowchart LR
+    Edit["Perfil · Editar nombre"] --> Controller["ProfileController.rename"]
+    Controller --> RPC["rename_my_profile"]
+    RPC --> DB["public.users.name"]
+    DB --> Controller
+    Controller --> Profile["Nombre en Perfil"]
+    Controller --> Name["accountNameProvider"]
+    Name --> Tasks["Saludo y menú de cuenta en Tareas"]
+    OAuth["Identidades Google y GitHub en Supabase Auth"] --> Auth["currentUserProvider"]
+    Auth --> Avatar["AccountAvatar en Perfil y Tareas"]
+```
+
+La RPC [`rename_my_profile`](../supabase/migrations/20261114000200_rename_personal_profile.sql)
+obtiene el dueño con `auth.uid()`, comprueba que su correo esté confirmado y
+actualiza solo `public.users.name` de esa sesión. No toma identificadores de
+usuario del cliente. Para habilitar la edición en el ambiente remoto, ejecuta
+una vez esa migración en **Supabase → SQL Editor** después de la migración de
+cuentas personales.
+
+[`providerAvatarUrl()`](../lib/features/auth/models/provider_avatar.dart)
+lee `picture` o `avatar_url` desde las identidades OAuth de Google y GitHub,
+con prioridad para el proveedor social principal cuando está disponible.
+[`AccountAvatar`](../lib/features/auth/presentation/widgets/account_avatar.dart)
+muestra la imagen HTTPS en Perfil y el menú de Tareas. Mientras carga, si no
+hay foto o si la petición falla, muestra las iniciales. En web permite
+mostrar la imagen con un elemento HTML si el CDN bloquea la descarga directa
+por CORS. La subida y la caché persistente de fotos siguen pendientes.
+
+Para comprobarlo, cambia el nombre desde Perfil y abre Tareas con una cuenta
+que pertenezca al grupo. Después, vuelve a iniciar sesión con Google o GitHub
+y verifica que el nombre se conserve y que la misma foto aparezca en ambos
+lugares si el proveedor entregó una.
+[Identidades de Supabase](https://supabase.com/docs/guides/auth/identities)
+· [Imágenes de red en Flutter](https://api.flutter.dev/flutter/widgets/Image/Image.network.html).
 
 ## 4. Tareas, revisiones, historial y ranking
 
@@ -374,7 +419,7 @@ global, la familia tipográfica y la restauración del valor guardado.
 | Firebase Storage y caché local de imágenes | Pendiente. Perfil usa iniciales y el catálogo usa iconos locales. Falta subir y guardar imágenes para uso sin conexión. |
 | FCM desde consola, Topics y tres estados | Parcial. Hay escuchador global y rutas al tocar avisos privados. Faltan Topics, envío de consola en la demo y comprobación en Android. |
 | Auth, alta por correo y dos proveedores | Implementado en código. Incluye registro, verificación, reenvío, recuperación por correo y acceso con Google y GitHub mediante Supabase Auth. Falta configurar y validar el entorno remoto. |
-| Perfil y avatar sincronizado | Parcial. Perfil muestra datos e iniciales. Falta foto compartida con Tareas, foto del proveedor y permiso de edición para cuentas de correo. |
+| Perfil y avatar sincronizado | Parcial. Nombre editable y foto de Google/GitHub compartida entre Perfil y Tareas, con iniciales como alternativa. Falta subir o cambiar la foto de las cuentas registradas por correo. |
 | Estado con Riverpod | Implementado. Las ocho llamadas explícitas a `setState` fueron sustituidas. La búsqueda en `lib/` tampoco encontró usos explícitos de `ValueNotifier`. |
 | Tipografía y tema dinámico | Implementados. DM Sans viene incluida con la app y Perfil permite cambiar y recordar el modo claro u oscuro. |
 | Onboarding | Pendiente. |
@@ -422,7 +467,7 @@ Para la activación real de avisos y las pruebas SQL y Deno, consultar las
 ## 10. Decisiones pendientes y mantenimiento
 
 Supabase se mantiene para base de datos y autenticación. El siguiente
-minibloque de cuenta es nombre editable y avatar.
+minibloque de cuenta es la subida opcional de fotos para usuarios de correo.
 La creación, las invitaciones y las membresías por ciclo son un bloque aparte.
 Se acordó una membresía activa por cuenta. El administrador debe cerrar su
 ciclo antes de salir. Mi actividad conservará el historial personal. Cuando
@@ -435,7 +480,8 @@ y el cambio claro/oscuro persistente desde Perfil. También se añadió el flujo
 de registro y recuperación por código y la separación entre perfil personal
 y acceso al grupo familiar. Se agregó acceso OAuth con Google y GitHub con
 retorno a Flutter en móvil y web. Después se incorporaron los iconos oficiales
-a los botones de acceso.
+a los botones de acceso, el nombre editable y la foto de los proveedores en
+Perfil y Tareas.
 
 En cada cambio del proyecto, actualizar este archivo en la misma revisión.
 Explicar el flujo o método afectado, dónde vive en el código, qué requisito
