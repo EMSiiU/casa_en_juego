@@ -17,6 +17,15 @@ class FakeProfileRepository implements ProfileRepository {
   int saveCalls = 0;
   String? savedUserId;
   String? savedName;
+  Future<void> Function(String, DateTime)? onCreateCycle;
+
+  @override
+  Future<void> createFirstCycle({
+    required String name,
+    required DateTime plannedEndDate,
+  }) async {
+    await onCreateCycle!(name, plannedEndDate);
+  }
 
   @override
   Future<String> rename(String name) async {

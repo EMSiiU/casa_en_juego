@@ -11,11 +11,13 @@ class AdminScaffold extends StatelessWidget {
     required this.child,
     this.subtitle = 'ADMINISTRACIÓN',
     this.isBusy = false,
+    this.showNavigationBar = true,
   });
   final String title;
   final String subtitle;
   final Widget child;
   final bool isBusy;
+  final bool showNavigationBar;
   @override
   Widget build(BuildContext context) => PopScope(
     canPop: !isBusy,
@@ -50,10 +52,12 @@ class AdminScaffold extends StatelessWidget {
           ),
         ),
       ),
-      bottomNavigationBar: IgnorePointer(
-        ignoring: isBusy,
-        child: const AppNavigationBar(selectedIndex: 3),
-      ),
+      bottomNavigationBar: showNavigationBar
+          ? IgnorePointer(
+              ignoring: isBusy,
+              child: const AppNavigationBar(selectedIndex: 3),
+            )
+          : null,
     ),
   );
 }

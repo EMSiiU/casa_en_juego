@@ -12,13 +12,14 @@ abstract interface class AdminRepository {
   Future<HouseholdTask> loadTask(String id);
   Future<void> saveTask({String? id, required TaskDraft draft});
   Future<void> closeSeason(String id);
-  Future<void> startSeason(String name);
+  Future<void> startSeason(String name, {required DateTime plannedEndDate});
 }
 
 class SupabaseAdminRepository implements AdminRepository {
   SupabaseAdminRepository(this._client);
   final SupabaseClient _client;
-  static const _seasonColumns = 'id, name, start_date, end_date, status';
+  static const _seasonColumns =
+      'id, name, start_date, end_date, status, planned_duration_days, planned_end_date';
   static const _taskColumns =
       'id, name, points, icon_name, is_active, is_daily_limited';
 
@@ -139,11 +140,17 @@ class SupabaseAdminRepository implements AdminRepository {
   }
 
   @override
-  Future<void> startSeason(String name) async {
-    // El índice único garantiza un solo ciclo activo, incluso con dos administradores.
+  Future<void> startSeason(
+    String name, {
+    required DateTime plannedEndDate,
+  }) async {
+    // El índice único garantiza un solo ciclo activo por grupo.
     await _client
         .from('seasons')
-        .insert({'name': name.trim()})
+        .insert({
+          'name': name.trim(),
+          'planned_end_date': plannedEndDate.toIso8601String().split('T').first,
+        })
         .select('id')
         .single();
   }

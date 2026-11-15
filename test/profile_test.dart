@@ -4,6 +4,9 @@ import 'dart:typed_data';
 
 import 'package:casa_en_juego/core/router/app_router.dart';
 import 'package:casa_en_juego/core/theme/theme_mode_provider.dart';
+import 'package:casa_en_juego/features/admin/models/admin_dashboard.dart';
+import 'package:casa_en_juego/features/admin/models/admin_season.dart';
+import 'package:casa_en_juego/features/admin/providers/admin_providers.dart';
 import 'package:casa_en_juego/features/auth/models/app_user.dart';
 import 'package:casa_en_juego/features/auth/models/auth_failure.dart';
 import 'package:casa_en_juego/features/auth/presentation/widgets/account_avatar.dart';
@@ -25,6 +28,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fake_profile_repository.dart';
 import 'support/fake_activity_repository.dart';
+import 'support/fake_admin_repository.dart';
 import 'support/fake_reviews_repository.dart';
 import 'support/fake_tasks_repository.dart';
 import 'widget_test.dart' show testUser, FakeAuthRepository;
@@ -36,6 +40,7 @@ Future<ProviderContainer> startProfile(
   SharedPreferencesWithCache? appearance,
   AccountPhotoRepository? photos,
   Future<ProfilePhoto?> Function()? pickPhoto,
+  FakeAdminRepository? admin,
 }) async {
   final authRepository = auth ?? (FakeAuthRepository()..user = testUser);
   addTearDown(authRepository.events.close);
@@ -51,6 +56,7 @@ Future<ProviderContainer> startProfile(
         tasksRepositoryProvider.overrideWithValue(FakeTasksRepository()),
         reviewsRepositoryProvider.overrideWithValue(FakeReviewsRepository()),
         activityRepositoryProvider.overrideWithValue(FakeActivityRepository()),
+        if (admin != null) adminRepositoryProvider.overrideWithValue(admin),
       ],
       child: const CasaEnJuegoApp(),
     ),
@@ -110,6 +116,95 @@ Future<void> togglePreference(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets(
+    'An account without a cycle can create one and open its admin panel',
+    (tester) async {
+      const personal = AppUser(
+        id: 'personal-id',
+        name: 'Ana',
+        email: 'ana@example.com',
+        role: UserRole.sibling,
+        notificationsEnabled: false,
+        isHouseholdMember: false,
+      );
+      final auth = FakeAuthRepository()..user = personal;
+      final admin = FakeAdminRepository();
+      ({String name, DateTime plannedEndDate})? saved;
+      final repository = FakeProfileRepository()..user = personal;
+      repository.onCreateCycle = (name, date) async {
+        saved = (name: name, plannedEndDate: date);
+        repository.user = const AppUser(
+          id: 'personal-id',
+          name: 'Ana',
+          email: 'ana@example.com',
+          role: UserRole.admin,
+          notificationsEnabled: false,
+        );
+        auth.user = repository.user;
+        admin.dashboard = AdminDashboard(
+          active: SeasonSummary(
+            season: AdminSeason(
+              id: 'new-season',
+              name: name,
+              startDate: DateTime.now(),
+              status: AdminSeasonStatus.active,
+              plannedDurationDays: 1,
+              plannedEndDate: date,
+            ),
+            logs: const [],
+          ),
+        );
+      };
+      final container = await startProfile(
+        tester,
+        repository,
+        auth: auth,
+        admin: admin,
+      );
+      final router = container.read(appRouterProvider);
+
+      router.go('/admin/tasks');
+      await tester.pumpAndSettle();
+      expect(find.text('Aún no tienes un ciclo'), findsOneWidget);
+      expect(find.text('Editar nombre'), findsOneWidget);
+      await tester.ensureVisible(find.text('Administración'));
+      await tester.tap(find.text('Administración'));
+      await tester.pumpAndSettle();
+      expect(find.text('Tu primer ciclo'), findsOneWidget);
+      expect(find.text('Gestionar tareas'), findsNothing);
+      await tester.tap(find.text('Crear ciclo'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField), '  Mi ciclo  ');
+      await tester.tap(find.text('Iniciar ciclo'));
+      await tester.pumpAndSettle();
+      expect(find.text('Elige una fecha de fin prevista.'), findsOneWidget);
+      expect(saved, isNull);
+
+      await tester.tap(find.text('Elegir fecha'));
+      await tester.pumpAndSettle();
+      final calendar = find.byType(DatePickerDialog);
+      final tomorrow = tester.widget<DatePickerDialog>(calendar).firstDate;
+      final strings = MaterialLocalizations.of(tester.element(calendar));
+      await tester.tap(find.text(strings.okButtonLabel));
+      await tester.pumpAndSettle();
+      expect(find.text('Duración prevista · 1 día'), findsOneWidget);
+      await tester.tap(find.text('Iniciar ciclo'));
+      await tester.pumpAndSettle();
+      expect(saved, (name: 'Mi ciclo', plannedEndDate: tomorrow));
+      expect(
+        container.read(currentUserProvider).asData?.value?.isAdmin,
+        isTrue,
+      );
+
+      expect(find.text('Mi ciclo'), findsOneWidget);
+      expect(
+        find.text('Fin previsto · ${strings.formatShortDate(tomorrow)}'),
+        findsOneWidget,
+      );
+      expect(find.text('Duración prevista · 1 día'), findsOneWidget);
+    },
+  );
+
   testWidgets('A custom photo can be added, replaced and removed', (
     tester,
   ) async {

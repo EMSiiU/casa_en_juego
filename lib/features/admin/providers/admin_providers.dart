@@ -72,8 +72,11 @@ class AdminActionController extends Notifier<AdminActionState> {
     }
     await repository.closeSeason(id);
   });
-  Future<bool> startSeason(String name) => _run((repository) async {
-    if (name.trim().isEmpty || name.trim().length > 100) {
+  Future<bool> startSeason(String name, DateTime plannedEndDate) => _run((
+    repository,
+  ) async {
+    final nameLength = name.trim().runes.length;
+    if (nameLength < 1 || nameLength > 100) {
       throw const AdminFailure(
         'Escribe un nombre de ciclo de 1 a 100 caracteres.',
       );
@@ -84,7 +87,7 @@ class AdminActionController extends Notifier<AdminActionState> {
         'Debe finalizar el ciclo activo antes de iniciar otro.',
       );
     }
-    await repository.startSeason(name.trim());
+    await repository.startSeason(name.trim(), plannedEndDate: plannedEndDate);
   });
 
   Future<bool> _run(Future<void> Function(AdminRepository) operation) async {

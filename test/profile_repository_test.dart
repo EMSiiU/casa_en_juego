@@ -22,13 +22,16 @@ void main() {
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     server.listen((request) async {
       requests.add(request.uri);
-      if (request.uri.path.endsWith('/rpc/rename_my_profile')) {
+      if (request.uri.path.startsWith('/rest/v1/rpc/')) {
         final values = jsonDecode(
           await utf8.decoder.bind(request).join(),
         ) as Map<String, dynamic>;
         updates.add(values);
         request.response.headers.contentType = ContentType.json;
-        request.response.write(jsonEncode(values['p_name']));
+        final result = request.uri.path.endsWith('/create_first_cycle')
+            ? '12345678-1234-1234-1234-123456789abc'
+            : values['p_name'];
+        request.response.write(jsonEncode(result));
         await request.response.close();
         return;
       }
@@ -77,6 +80,20 @@ void main() {
     expect(requests.single.path, '/rest/v1/rpc/rename_my_profile');
     expect(updates.single, {'p_name': 'Ana Marín'});
   });
+  test(
+    'Cycle creation sends a calendar date without a time or offset',
+    () async {
+      await repository.createFirstCycle(
+        name: 'Mi ciclo',
+        plannedEndDate: DateTime(2026, 11, 22),
+      );
+      expect(requests.single.path, '/rest/v1/rpc/create_first_cycle');
+      expect(updates.single, {
+        'p_name': 'Mi ciclo',
+        'p_planned_end_date': '2026-11-22',
+      });
+    },
+  );
   test('Preference updates send only notifications_enabled and persist across reads', () async {
     final user = await repository.setNotifications(
       userId: 'member-id',

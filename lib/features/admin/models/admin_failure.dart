@@ -6,6 +6,9 @@ class AdminFailure implements Exception {
   static String messageFor(Object error) {
     if (error is AdminFailure) return error.message;
     if (error is PostgrestException) {
+      if (error.message == 'CYCLE_END_DATE_INVALID') {
+        return 'Elige una fecha posterior al día de inicio en Ciudad de México.';
+      }
       return switch (error.code) {
         '23505' =>
           'Ya existe un ciclo activo. Actualiza el panel antes de continuar.',

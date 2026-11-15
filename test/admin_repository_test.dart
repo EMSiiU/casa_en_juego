@@ -131,14 +131,20 @@ void main() {
   });
 
   test(
-    'Closing only changes an active season; starting sends only its name',
+    'Closing changes the status; starting sends the name and calendar date',
     () async {
       await repository.closeSeason('season-id');
       expect(requests.single.body, {'status': 'closed'});
       expect(requests.single.uri.queryParameters['id'], 'eq.season-id');
       expect(requests.single.uri.queryParameters['status'], 'eq.active');
-      await repository.startSeason(' Noviembre 2026 ');
-      expect(requests.last.body, {'name': 'Noviembre 2026'});
+      await repository.startSeason(
+        ' Noviembre 2026 ',
+        plannedEndDate: DateTime(2026, 11, 22),
+      );
+      expect(requests.last.body, {
+        'name': 'Noviembre 2026',
+        'planned_end_date': '2026-11-22',
+      });
       expect(
         requests.every((request) => request.uri.path.endsWith('seasons')),
         isTrue,

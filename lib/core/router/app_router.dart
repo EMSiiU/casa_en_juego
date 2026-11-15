@@ -27,6 +27,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final path = state.uri.path;
       final isEmailPage =
           path == '/login' || path == '/registro' || path == '/recuperar';
+      // Mantiene la pantalla inicial de Administración al recargar su perfil.
+      if (path == '/admin' &&
+          user.isLoading &&
+          user.value?.isHouseholdMember == false &&
+          !user.hasError) {
+        return null;
+      }
       // No se muestran rutas protegidas mientras se restaura o valida el perfil.
       if (user.isLoading || user.hasError) {
         return path == '/session' ? null : '/session';
@@ -35,7 +42,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return isEmailPage ? null : '/login';
       }
       if (user.asData?.value?.isHouseholdMember == false) {
-        return path == '/profile' ? null : '/profile';
+        return path == '/profile' || path == '/admin' ? null : '/profile';
       }
       if ((path == '/admin' || path.startsWith('/admin/')) &&
           user.asData?.value?.isAdmin != true) {

@@ -81,6 +81,21 @@ class ProfileController extends AsyncNotifier<ProfileState> {
 
   Future<void> removePhoto() => _writePhoto(remove: true);
 
+  Future<void> createFirstCycle(String name, DateTime plannedEndDate) =>
+      _save((repository, user) async {
+        if (user.isHouseholdMember) return null;
+        try {
+          await repository.createFirstCycle(
+            name: name.trim(),
+            plannedEndDate: plannedEndDate,
+          );
+        } on PostgrestException catch (error) {
+          // Another device may have saved the membership first.
+          if (error.message != 'CYCLE_MEMBERSHIP_EXISTS') rethrow;
+        }
+        return user;
+      }, onSaved: (_) => ref.invalidate(currentUserProvider));
+
   Future<void> _writePhoto({required bool remove}) => _save((_, user) async {
     final photos = ref.read(accountPhotoRepositoryProvider);
     try {

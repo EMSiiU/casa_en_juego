@@ -171,10 +171,18 @@ class _TasksPageState extends ConsumerState<TasksPage> {
                       ),
                     ),
                     data: (data) => data.season == null
-                        ? const _StatusCard(
+                        ? _StatusCard(
                             icon: Icons.event_busy_outlined,
                             title: 'No hay un ciclo activo',
-                            message: 'El administrador debe iniciar una temporada para que puedas registrar tareas.',
+                            message: user?.isAdmin == true
+                                ? 'Crea el siguiente ciclo desde Administración.'
+                                : 'El administrador debe iniciar una temporada para que puedas registrar tareas.',
+                            action: user?.isAdmin == true
+                                ? FilledButton(
+                                    onPressed: () => context.pushNamed('admin'),
+                                    child: const Text('Ir a Administración'),
+                                  )
+                                : null,
                           )
                         : _buildDashboard(data, user?.id ?? ''),
                   ),

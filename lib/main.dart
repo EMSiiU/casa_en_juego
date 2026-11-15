@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -41,6 +42,8 @@ class CasaEnJuegoApp extends ConsumerWidget {
       child: MaterialApp.router(
         title: 'Casa en Juego',
         debugShowCheckedModeBanner: false,
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        supportedLocales: const [Locale('es', 'MX')],
         theme: AppTheme.light,
         darkTheme: AppTheme.dark,
         themeMode: ref.watch(themeModeProvider),

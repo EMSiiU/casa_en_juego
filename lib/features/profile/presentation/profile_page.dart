@@ -321,17 +321,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           ),
         ),
         const SizedBox(height: 28),
-        if (!user.isHouseholdMember)
-          const Card(
-            child: ListTile(
-              leading: Icon(Icons.home_outlined),
-              title: Text('Aún no tienes un ciclo'),
-              subtitle: Text(
-                'Tu cuenta ya está lista. La creación y el ingreso a ciclos estarán disponibles más adelante.',
-              ),
-            ),
-          ),
-        if (user.isAdmin) ...[
+        if (user.isAdmin || !user.isHouseholdMember) ...[
           Card(
             margin: EdgeInsets.zero,
             color: context.appColors.primaryContainer,
@@ -340,10 +330,16 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 Icons.admin_panel_settings_outlined,
                 color: context.appColors.primary,
               ),
-              title: const Text('Cuidar del equipo'),
-              subtitle: const Text('Administrar tareas y ciclos'),
+              title: Text(
+                user.isAdmin ? 'Cuidar del equipo' : 'Administración',
+              ),
+              subtitle: Text(
+                user.isAdmin
+                    ? 'Administrar tareas y ciclos'
+                    : 'Aún no tienes un ciclo',
+              ),
               trailing: const Icon(Icons.chevron_right),
-              onTap: isSigningOut ? null : () => context.pushNamed('admin'),
+              onTap: canEdit ? () => context.pushNamed('admin') : null,
             ),
           ),
           const SizedBox(height: 16),

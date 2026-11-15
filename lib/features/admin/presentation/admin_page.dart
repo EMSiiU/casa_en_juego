@@ -4,11 +4,14 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../activity/presentation/activity_date_formatter.dart';
+import '../../auth/providers/auth_providers.dart';
+import '../../profile/providers/profile_providers.dart';
 import '../models/admin_dashboard.dart';
 import '../models/admin_failure.dart';
 import '../providers/admin_providers.dart';
 import 'widgets/admin_scaffold.dart';
 import 'widgets/close_season_sheet.dart';
+import 'widgets/cycle_form_dialog.dart';
 
 class AdminPage extends ConsumerStatefulWidget {
   const AdminPage({super.key});
@@ -17,15 +20,14 @@ class AdminPage extends ConsumerStatefulWidget {
 }
 
 class _AdminPageState extends ConsumerState<AdminPage> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
   late final AppLifecycleListener _lifecycle;
   @override
   void initState() {
     super.initState();
     _lifecycle = AppLifecycleListener(
       onResume: () {
-        if (!ref.read(adminActionProvider).isBusy) {
+        if (ref.read(currentUserProvider).asData?.value?.isAdmin == true &&
+            !ref.read(adminActionProvider).isBusy) {
           ref.invalidate(adminDashboardProvider);
         }
       },
@@ -35,7 +37,6 @@ class _AdminPageState extends ConsumerState<AdminPage> {
   @override
   void dispose() {
     _lifecycle.dispose();
-    _nameController.dispose();
     super.dispose();
   }
 
@@ -50,8 +51,85 @@ class _AdminPageState extends ConsumerState<AdminPage> {
     }
   }
 
+  Future<void> _createCycle({required bool first}) async {
+    final userId = ref.read(currentUserProvider).asData?.value?.id;
+    if (userId == null) return;
+    final draft = await showDialog<CycleDraft>(
+      context: context,
+      builder: (context) => CycleFormDialog(
+        title: first ? 'Crear ciclo' : 'Crear siguiente ciclo',
+      ),
+    );
+    if (!mounted ||
+        draft == null ||
+        ref.read(currentUserProvider).asData?.value?.id != userId) {
+      return;
+    }
+    if (first) {
+      await ref
+          .read(profileProvider.notifier)
+          .createFirstCycle(draft.name, draft.plannedEndDate);
+      return;
+    }
+    final started = await ref
+        .read(adminActionProvider.notifier)
+        .startSeason(draft.name, draft.plannedEndDate);
+    if (mounted && started) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          duration: Duration(seconds: 3),
+          persist: false,
+          content: Text('Nuevo ciclo iniciado.'),
+        ),
+      );
+    }
+  }
+
+  Widget _buildFirstCycle({required bool refreshingMembership}) {
+    final profile = ref.watch(profileProvider);
+    final isBusy =
+        refreshingMembership ||
+        profile.isLoading ||
+        (profile.value?.isSaving ?? false);
+    return AdminScaffold(
+      title: 'Tu primer ciclo',
+      isBusy: isBusy,
+      showNavigationBar: false,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        children: [
+          if (profile.hasError)
+            AdminLoadError(
+              message: 'No pudimos cargar tu perfil.',
+              onRetry: () => ref.invalidate(profileProvider),
+            )
+          else
+            FilledButton.icon(
+              onPressed: isBusy ? null : () => _createCycle(first: true),
+              icon: const Icon(Icons.add),
+              label: Text(isBusy ? 'Preparando…' : 'Crear ciclo'),
+            ),
+          if (profile.value?.errorMessage case final message?) ...[
+            const SizedBox(height: 16),
+            Semantics(
+              liveRegion: true,
+              child: Text(
+                message,
+                style: TextStyle(color: context.appColors.error),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final session = ref.watch(currentUserProvider);
+    if (session.value?.isHouseholdMember == false) {
+      return _buildFirstCycle(refreshingMembership: session.isLoading);
+    }
     final dashboard = ref.watch(adminDashboardProvider);
     final action = ref.watch(adminActionProvider);
     final active = dashboard.asData?.value.active != null;
@@ -82,90 +160,17 @@ class _AdminPageState extends ConsumerState<AdminPage> {
                     _ActiveSeasonCard(summary: data.active!),
                     const SizedBox(height: 20),
                   ] else ...[
-                    const AdminInfo(
-                      'No hay ninguna temporada activa. Puedes iniciar un nuevo ciclo.',
-                    ),
-                    const SizedBox(height: 20),
                     if (data.latestClosed != null) ...[
                       _ClosedSeasonCard(summary: data.latestClosed!),
                       const SizedBox(height: 20),
                     ],
-                    Form(
-                      key: _formKey,
-                      child: Card(
-                        margin: EdgeInsets.zero,
-                        color: context.appColors.primaryContainer,
-                        child: Padding(
-                          padding: const EdgeInsets.all(18),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const Text(
-                                'Siguiente temporada',
-                                style: TextStyle(fontSize: 18),
-                              ),
-                              const SizedBox(height: 16),
-                              TextFormField(
-                                controller: _nameController,
-                                enabled: !action.isBusy,
-                                maxLength: 100,
-                                decoration: const InputDecoration(
-                                  labelText: 'Nombre del ciclo',
-                                  counterText: '',
-                                  hintText: 'Noviembre 2026',
-                                ),
-                                validator: (value) =>
-                                    value == null || value.trim().isEmpty
-                                    ? 'Escribe el nombre del ciclo.'
-                                    : null,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Todos comienzan con 0 puntos. Los ciclos anteriores quedan guardados y no se modifican.',
-                                style: TextStyle(
-                                  color: context.appColors.onSurfaceVariant,
-                                  fontSize: 12,
-                                  height: 1.5,
-                                ),
-                              ),
-                              const SizedBox(height: 18),
-                              FilledButton.icon(
-                                onPressed: action.isBusy
-                                    ? null
-                                    : () async {
-                                        if (!_formKey.currentState!
-                                            .validate()) {
-                                          return;
-                                        }
-                                        FocusScope.of(context).unfocus();
-                                        final started = await ref
-                                            .read(adminActionProvider.notifier)
-                                            .startSeason(_nameController.text);
-                                        if (context.mounted && started) {
-                                          _nameController.clear();
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            const SnackBar(
-                                              duration: Duration(seconds: 3),
-                                              persist: false,
-                                              content: Text(
-                                                'Nuevo ciclo iniciado.',
-                                              ),
-                                            ),
-                                          );
-                                        }
-                                      },
-                                icon: const Icon(Icons.add),
-                                label: Text(
-                                  action.isBusy
-                                      ? 'Iniciando…'
-                                      : 'Iniciar nuevo ciclo',
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                    FilledButton.icon(
+                      onPressed: action.isBusy
+                          ? null
+                          : () => _createCycle(first: false),
+                      icon: const Icon(Icons.add),
+                      label: Text(
+                        action.isBusy ? 'Iniciando…' : 'Crear siguiente ciclo',
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -182,7 +187,7 @@ class _AdminPageState extends ConsumerState<AdminPage> {
                         color: context.appColors.primary,
                       ),
                       title: const Text('Gestionar tareas'),
-                      subtitle: const Text('Catálogo familiar y puntos'),
+                      subtitle: const Text('Catálogo del grupo y puntos'),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: action.isBusy
                           ? null
@@ -203,12 +208,12 @@ class _AdminPageState extends ConsumerState<AdminPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Miembros de la familia',
+                            'Miembros del grupo',
                             style: TextStyle(fontWeight: FontWeight.w600),
                           ),
                           SizedBox(height: 10),
                           Text(
-                            'Las cuentas se crean y administran fuera de la app, desde Supabase. Aquí no se registran usuarios.',
+                            'La incorporación de miembros por código estará disponible más adelante.',
                             style: TextStyle(
                               color: context.appColors.onSurfaceVariant,
                               fontSize: 12,
@@ -303,6 +308,16 @@ class _ActiveSeasonCard extends StatelessWidget {
             summary.season.name,
             style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
           ),
+          if (summary.season.plannedEndDate case final date?) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Fin previsto · ${MaterialLocalizations.of(context).formatShortDate(date)}',
+            ),
+          ],
+          if (summary.season.plannedDurationDays case final days?) ...[
+            const SizedBox(height: 6),
+            Text('Duración prevista · ${days == 1 ? '1 día' : '$days días'}'),
+          ],
           const SizedBox(height: 20),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -353,66 +368,85 @@ class _ClosedSeasonCard extends StatelessWidget {
   const _ClosedSeasonCard({required this.summary});
   final SeasonSummary summary;
   @override
-  Widget build(BuildContext context) => Card(
-    margin: EdgeInsets.zero,
-    child: Padding(
-      padding: const EdgeInsets.all(18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${summary.season.name} · Finalizado',
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 10),
-          if (summary.season.endDate != null)
+  Widget build(BuildContext context) {
+    final results = summary.results;
+    final hasPoints = summary.approvedPoints > 0;
+    final tied = results.length > 1 && results[1].position == 1;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Text(
-              'Cierre: ${ActivityDateFormatter.format(summary.season.endDate!)} (UTC−5)',
+              '${summary.season.name} · Finalizado',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            if (summary.season.endDate != null)
+              Text(
+                'Cierre: ${ActivityDateFormatter.format(summary.season.endDate!)} (UTC−5)',
+                style: TextStyle(
+                  color: context.appColors.onSurfaceVariant,
+                  fontSize: 11,
+                ),
+              ),
+            const SizedBox(height: 16),
+            if (!hasPoints)
+              const Text('Sin ganador · no hubo puntos aprobados.')
+            else
+              for (final result in results)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    children: [
+                      Text(
+                        '${result.position}.',
+                        style: TextStyle(color: context.appColors.primary),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(result.name),
+                            if (result.position == 1)
+                              Text(
+                                tied
+                                    ? 'Empate en primer lugar'
+                                    : 'Ganador del ciclo',
+                                style: Theme.of(context).textTheme.labelSmall,
+                              ),
+                          ],
+                        ),
+                      ),
+                      Text('${result.points} pts'),
+                    ],
+                  ),
+                ),
+            Text(
+              '${summary.approvedPoints} puntos aprobados · Resultados conservados',
               style: TextStyle(
                 color: context.appColors.onSurfaceVariant,
                 fontSize: 11,
               ),
             ),
-          const SizedBox(height: 16),
-          if (summary.approvedPoints == 0)
-            const Text('Sin puntos aprobados en este ciclo.')
-          else
-            for (final result in summary.results)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Row(
-                  children: [
-                    Text(
-                      '${result.position}.',
-                      style: TextStyle(color: context.appColors.primary),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(child: Text(result.name)),
-                    Text('${result.points} pts'),
-                  ],
+            if (summary.pendingCount > 0) ...[
+              const SizedBox(height: 10),
+              Text(
+                summary.pendingCount == 1
+                    ? '1 solicitud quedó sin resolver y no suma puntos.'
+                    : '${summary.pendingCount} solicitudes quedaron sin resolver y no suman puntos.',
+                style: TextStyle(
+                  color: context.statusColors.pending,
+                  fontSize: 11,
                 ),
               ),
-          Text(
-            '${summary.approvedPoints} puntos aprobados · Resultados conservados',
-            style: TextStyle(
-              color: context.appColors.onSurfaceVariant,
-              fontSize: 11,
-            ),
-          ),
-          if (summary.pendingCount > 0) ...[
-            const SizedBox(height: 10),
-            Text(
-              summary.pendingCount == 1
-                  ? '1 solicitud quedó sin resolver y no suma puntos.'
-                  : '${summary.pendingCount} solicitudes quedaron sin resolver y no suman puntos.',
-              style: TextStyle(
-                color: context.statusColors.pending,
-                fontSize: 11,
-              ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

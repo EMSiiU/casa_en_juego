@@ -6,6 +6,10 @@ import '../models/profile_failure.dart';
 abstract interface class ProfileRepository {
   Future<AppUser> loadProfile(String userId);
   Future<String> rename(String name);
+  Future<void> createFirstCycle({
+    required String name,
+    required DateTime plannedEndDate,
+  });
   Future<AppUser> setNotifications({
     required String userId,
     required bool enabled,
@@ -20,6 +24,20 @@ class SupabaseProfileRepository implements ProfileRepository {
   @override
   Future<String> rename(String name) async =>
       await _client.rpc<String>('rename_my_profile', params: {'p_name': name});
+
+  @override
+  Future<void> createFirstCycle({
+    required String name,
+    required DateTime plannedEndDate,
+  }) async {
+    await _client.rpc<String>(
+      'create_first_cycle',
+      params: {
+        'p_name': name,
+        'p_planned_end_date': plannedEndDate.toIso8601String().split('T').first,
+      },
+    );
+  }
 
   @override
   Future<AppUser> loadProfile(String userId) async {

@@ -101,6 +101,8 @@ class FakeAdminRepository implements AdminRepository {
           name: current.season.name,
           startDate: current.season.startDate,
           endDate: DateTime.utc(2026, 10, 22, 20),
+          plannedEndDate: current.season.plannedEndDate,
+          plannedDurationDays: current.season.plannedDurationDays,
           status: AdminSeasonStatus.closed,
         ),
         logs: current.logs,
@@ -109,7 +111,10 @@ class FakeAdminRepository implements AdminRepository {
   }
 
   @override
-  Future<void> startSeason(String name) async {
+  Future<void> startSeason(
+    String name, {
+    required DateTime plannedEndDate,
+  }) async {
     startCalls++;
     await _wait();
     dashboard = AdminDashboard(
@@ -119,6 +124,7 @@ class FakeAdminRepository implements AdminRepository {
           name: name,
           startDate: DateTime.utc(2026, 11),
           status: AdminSeasonStatus.active,
+          plannedEndDate: plannedEndDate,
         ),
         logs: [],
       ),

@@ -7,8 +7,8 @@ registra una tarea, otro confirma o rechaza el trabajo y el ranking muestra
 los puntos de las tareas aprobadas en el ciclo activo. La administración
 define el catálogo y los ciclos. Mi actividad conserva el historial personal.
 
-El alcance actual es un grupo familiar con acceso para sus miembros originales.
-También hay un flujo de registro de cuentas personales desde la aplicación.
+Los miembros originales conservan el grupo familiar existente. Las cuentas
+personales se registran desde la app y pueden crear su propio ciclo.
 El maestro aprobó usar Supabase para datos y autenticación, y Firebase para
 avisos. La entrega es el domingo 22 de noviembre de 2026. El mapa y el pago
 siguen pendientes.
@@ -60,9 +60,11 @@ las interfaces de repositorio por implementaciones de prueba.
    carga el perfil asociado. Si el perfil todavía no existe, llama a la RPC
    `ensure_personal_profile()`. `currentUserProvider` expone el resultado.
 3. El router lleva al usuario a `/session` mientras se valida el perfil, a
-   `/login` si no hay sesión, a `/tasks` para miembros del hogar y a
+   `/login` si no hay sesión, a `/tasks` para miembros de un grupo y a
    `/profile` para cuentas personales sin ciclo. Registro y recuperación
-   son rutas públicas. Las rutas `/admin` requieren rol de administrador.
+   son rutas públicas. Una cuenta sin grupo puede abrir `/admin` para crear
+   su primer ciclo. El panel de gestión y las rutas `/admin/tasks` requieren
+   el rol de administrador del grupo.
 4. `ProfileController.setNotifications()` actualiza la preferencia guardada en
    PostgreSQL y sincroniza el estado de avisos. Perfil muestra nombre, correo,
    rol, avatar e información del grupo cuando corresponde.
@@ -100,7 +102,7 @@ La [migración de cuentas personales](../supabase/migrations/20261114000100_add_
 marca como miembros los perfiles existentes y hace que los nuevos nazcan sin
 membresía. La RPC toma el identificador y correo de Supabase Auth. El cliente
 puede proponer un nombre, pero la base decide el rol. Las políticas RLS solo
-dejan que una cuenta personal vea su propio perfil. El grupo existente
+dejan que una cuenta sin grupo vea su propio perfil. El grupo existente
 mantiene su acceso a datos y sus permisos de administrador.
 
 [PasswordRecovery](../lib/features/auth/repositories/password_recovery.dart)
@@ -114,15 +116,15 @@ solicita el cierre de esa sesión y la interfaz vuelve al acceso normal.
 
 1. Aplicar la migración de cuentas personales en SQL Editor sobre la base
    existente. Ejecutar solo esa migración para este cambio.
-2. En **Authentication → Emails → Templates**, editar **Confirm signup** y
-   **Reset password** para que incluyan el código de un solo uso
-   `{{ .Token }}`, con la indicación de copiarlo en Casa en Juego. Para este
-   flujo se usa el código en lugar del enlace predeterminado
-   `{{ .ConfirmationURL }}`.
-3. En **Authentication → Emails**, revisar si está habilitado el SMTP
-   personalizado. El envío integrado de Supabase solo entrega a direcciones
-   autorizadas del equipo del proyecto. Para correos de la familia o de
-   evaluadores, configurar un SMTP propio.
+2. En **Authentication → Emails → Set up SMTP**, configurar un proveedor
+   SMTP con el remitente y las credenciales que indique el servicio de correo.
+   El envío integrado de Supabase solo entrega a direcciones del equipo del
+   proyecto. Desde el 3 de junio de 2026, los proyectos gratuitos nuevos
+   que usan ese envío también tienen bloqueada la edición de plantillas.
+3. Con el SMTP personalizado habilitado, volver a **Templates** y editar
+   **Confirm sign up** y **Reset password**. Usar `{{ .Token }}` en el cuerpo
+   e indicar que se introduzca el código en Casa en Juego. Retirar
+   `{{ .ConfirmationURL }}` de ambas plantillas.
 4. En la configuración del proveedor de correo, mantener activada la
    confirmación de correo y después habilitar el registro de usuarios nuevos.
 5. En Android o web, crear una cuenta de prueba, verificar que se pueda
@@ -130,8 +132,9 @@ solicita el cierre de esa sesión y la interfaz vuelve al acceso normal.
    que la contraseña anterior falle y la nueva funcione después de recuperarla.
    Repetir el acceso con una cuenta familiar previa para comprobar su permiso.
 
-Referencias: [plantillas de correo de Supabase](https://supabase.com/docs/guides/auth/auth-email-templates)
-y [configuración SMTP](https://supabase.com/docs/guides/auth/auth-smtp).
+Referencias: [restricción de plantillas en el plan gratuito](https://supabase.com/changelog/46599-changes-to-email-template-customisation-on-free-tier),
+[configuración SMTP](https://supabase.com/docs/guides/auth/auth-smtp)
+y [plantillas de correo de Supabase](https://supabase.com/docs/guides/auth/auth-email-templates).
 
 ### Acceso con Google y GitHub
 
@@ -307,6 +310,101 @@ comparte entre las formas de acceso vinculadas a la misma cuenta.
 
 ## 4. Tareas, revisiones, historial y ranking
 
+### Crear o iniciar un ciclo
+
+Una cuenta con correo confirmado y sin grupo puede abrir
+**Perfil → Administración → Crear ciclo**. El [formulario compartido](../lib/features/admin/presentation/widgets/cycle_form_dialog.dart)
+pide nombre y una **fecha de fin prevista** en el calendario de Material,
+localizado en español de México con `flutter_localizations`. La selección
+empieza en mañana según el calendario del dispositivo. El formulario muestra
+los días previstos y **Administración** muestra la fecha y la duración
+guardadas. El cierre se confirma manualmente desde ese panel.
+
+```mermaid
+flowchart LR
+    Profile["Perfil sin grupo"] --> Start["Administración · Crear ciclo"]
+    Closed["Administración · Resultado del ciclo cerrado"] --> Next["Crear siguiente ciclo"]
+    Start --> Form["CycleFormDialog · Nombre y calendario"]
+    Next --> Form
+    Form --> Controller["ProfileController.createFirstCycle"]
+    Form --> Admin["AdminActionController.startSeason"]
+    Admin --> Existing["Inserta otro ciclo en el mismo grupo"]
+    Controller --> RPC["create_first_cycle"]
+    RPC --> Lock["Bloquea el perfil con FOR UPDATE"]
+    Lock --> Group["Crea el grupo"]
+    Group --> Catalog["Copia el catálogo inicial"]
+    Group --> Season["Crea el ciclo activo"]
+    Season --> Role["Asigna al creador como administrador del grupo"]
+    Role --> Refresh["Recarga el perfil y habilita sus rutas"]
+```
+
+[`ProfileRepository.createFirstCycle()`](../lib/features/profile/repositories/profile_repository.dart)
+envía `p_name` y `p_planned_end_date` en formato `AAAA-MM-DD`. La RPC obtiene la cuenta con
+`auth.uid()` y hace las escrituras en una sola transacción. El bloqueo del
+perfil impide asignarle dos grupos aunque pulse desde dos dispositivos.
+Al guardar, el controlador invalida `currentUserProvider` para leer la
+membresía y el rol de la base. El panel se actualiza con el ciclo activo.
+
+Tras el cierre, Administración muestra los resultados del último ciclo
+cerrado. `SeasonSummary.results` suma solo los puntos aprobados y asigna
+la misma posición en los empates. La tarjeta identifica al ganador o a
+los participantes empatados en primer lugar. Con cero puntos aprobados
+indica que no hubo ganador. **Crear siguiente ciclo** abre el mismo
+formulario. `AdminActionController.startSeason()` comprueba el rol y que
+no haya un ciclo activo. El repositorio inserta el nombre y la fecha prevista.
+RLS, el índice único del grupo y `private.validate_season()` aplican las
+reglas en el servidor. Tareas enlaza a Administración si el administrador
+vuelve a iniciar sesión con el ciclo cerrado.
+
+El grupo es el ámbito de permisos y puede tener ciclos cerrados y como
+máximo uno activo. Cada perfil tiene una única columna `cycle_group_id`,
+que es nula hasta que obtiene una membresía. El rol `admin` de
+`public.users` se aplica únicamente dentro de ese grupo. Por compatibilidad,
+`is_household_member` sigue indicando si hay membresía y la base garantiza
+que coincida con `cycle_group_id`.
+
+La [migración de creación de ciclos](../supabase/migrations/20261115000100_add_cycle_creation.sql)
+asigna las cuentas familiares, los ciclos y las tareas existentes al mismo
+grupo y preserva sus identificadores e historial. Las políticas RLS filtran
+los perfiles, las temporadas, el catálogo y las solicitudes por el grupo
+de la sesión. El trigger `check_task_log_cycle_group()` exige que el autor,
+la tarea y el ciclo coincidan antes de calcular puntos. Las funciones de
+avisos y recordatorios también limitan los destinatarios por grupo.
+
+La [migración de fecha prevista](../supabase/migrations/20261115000200_add_cycle_planned_end_date.sql)
+añade `seasons.planned_end_date` con tipo `date`. El trigger
+`private.validate_season()` valida que sea posterior al día de inicio en
+`America/Mexico_City` y calcula `planned_duration_days` con la diferencia
+entre ambas fechas. `end_date` se asigna al cerrar el ciclo y registra la
+fecha y hora reales. Los ciclos existentes conservan los días originales.
+La RPC anterior que recibe `p_duration_days` sigue disponible para clientes
+que todavía la usan.
+
+La [migración de catálogo inicial y siguiente ciclo](../supabase/migrations/20261115000300_add_next_cycle_and_default_tasks.sql)
+guarda una copia del catálogo del grupo original en
+`private.cycle_task_templates`. En el proyecto actual, ese catálogo contiene
+las cinco tareas iniciales. Se conservan nombre, puntos, icono, estado y
+frecuencia. Al insertar un grupo, `private.seed_cycle_group_tasks()` copia
+la plantilla dentro de la transacción del primer ciclo. La migración también
+completa los grupos que siguen sin tareas y actualiza el permiso de inserción
+de la fecha prevista para los ciclos siguientes. El catálogo pertenece al
+grupo. Las altas, ediciones y desactivaciones se conservan al cambiar de
+ciclo y los puntos de solicitudes anteriores siguen en `points_snapshot`.
+
+Ejecuta las migraciones pendientes una vez en **Supabase → SQL Editor**.
+La de creación requiere las de cuentas personales, límites diarios y
+recordatorios push. La de fecha prevista se ejecuta después de la de
+creación y antes de la de catálogo inicial. Desde una cuenta sin grupo,
+abre Administración desde Perfil, crea un ciclo y verifica la fecha y las
+tareas iniciales. Edita una tarea, cierra el ciclo e inicia otro. Comprueba
+que el nuevo ciclo empieza con cero puntos y conserva la tarea editada.
+Comprueba que otra cuenta siga viendo solo los datos de su grupo.
+[`personal_accounts_test.cjs`](../supabase/tests/personal_accounts_test.cjs)
+comprueba la creación, el aislamiento de los administradores, el catálogo
+inicial y los destinatarios de avisos en una base PostgreSQL local.
+
+### Registro y revisión de tareas
+
 ```mermaid
 sequenceDiagram
     actor A as Miembro que registra
@@ -336,9 +434,10 @@ sequenceDiagram
 
 | Tabla | Datos y reglas |
 |---|---|
-| `users` | Identidad enlazada a Supabase Auth, nombre, correo, rol y preferencia de avisos. |
-| `tasks` | Nombre, icono, puntos, estado activo y opción de una vez al día. Desactivar una tarea la oculta del catálogo y preserva su historial. |
-| `seasons` | Nombre, fechas y estado del ciclo. Un índice único parcial limita la base a un ciclo activo. Un ciclo cerrado conserva sus fechas. |
+| `private.cycle_groups` | Agrupa membresía, catálogo e historial de ciclos y queda fuera del acceso directo del cliente. |
+| `users` | Identidad de Supabase Auth, nombre, correo, preferencia de avisos y rol en el grupo asignado. |
+| `tasks` | Catálogo del grupo con nombre, icono, puntos, estado activo y opción de una vez al día. Desactivar una tarea la oculta del catálogo y preserva su historial. |
+| `seasons` | Ciclo del grupo con nombre, inicio, fin previsto opcional, duración prevista, cierre real y estado. Un índice único parcial permite solo un ciclo activo por grupo. |
 | `task_logs` | Solicitud vinculada al usuario, tarea y ciclo. Guarda estados, fechas, revisor, puntos históricos y si se aplicó límite diario. El revisor debe ser otro miembro y una solicitud solo se puede resolver una vez. |
 | `push_devices` y `push_jobs` | Registro FCM por usuario/dispositivo y cola de entregas con estado, reintentos y caducidad. El acceso a dispositivos se gestiona con RPC autenticadas. |
 
@@ -363,7 +462,8 @@ y [límite diario](../supabase/migrations/20261022_add_daily_task_limits.sql).
    `syncUser()` coordina cambios de sesión, permiso, preferencia y registro.
    En Supabase, las RPC `register_push_device` y `unregister_push_device`
    vinculan o desvinculan el FID de la cuenta actual.
-3. La inserción o resolución de una tarea encola avisos. La Edge Function
+3. La inserción o resolución de una tarea encola avisos para miembros de su
+   grupo. La Edge Function
    `send-task-notifications` reclama trabajos, comprueba nuevamente el estado
    y el destinatario, llama a FCM y registra el resultado. Los recordatorios
    usan la misma cola y se programan a las 18:00 y 20:00 de Ciudad de México.
@@ -473,6 +573,7 @@ global, la familia tipográfica y la restauración del valor guardado.
 | FCM desde consola, Topics y tres estados | Parcial. Hay escuchador global y rutas al tocar avisos privados. Faltan Topics, envío de consola en la demo y comprobación en Android. |
 | Auth, alta por correo y dos proveedores | Implementado en código. Incluye registro, verificación, reenvío, recuperación por correo y acceso con Google y GitHub mediante Supabase Auth. Falta configurar y validar el entorno remoto. |
 | Perfil y avatar sincronizado | Implementado. Nombre editable y foto opcional que se puede subir, reemplazar o quitar. Perfil y Tareas muestran la foto de la cuenta con retorno a la imagen OAuth o a las iniciales. |
+| Creación y acceso a ciclos | Creación implementada para cuentas sin grupo. El creador administra su grupo y los datos se aíslan por membresía. Pendientes las invitaciones por código y el flujo de salida y reingreso. |
 | Estado con Riverpod | Implementado. Las ocho llamadas explícitas a `setState` fueron sustituidas. La búsqueda en `lib/` tampoco encontró usos explícitos de `ValueNotifier`. |
 | Tipografía y tema dinámico | Implementados. DM Sans viene incluida con la app y Perfil permite cambiar y recordar el modo claro u oscuro. |
 | Onboarding | Pendiente. |
@@ -520,12 +621,19 @@ Para la activación real de avisos y las pruebas SQL y Deno, consultar las
 ## 10. Decisiones pendientes y mantenimiento
 
 Supabase se mantiene para base de datos, autenticación y fotos de perfil.
-El siguiente bloque abarca la creación, las invitaciones y las membresías
-por ciclo.
-Se acordó una membresía activa por cuenta. El administrador debe cerrar su
-ciclo antes de salir. Mi actividad conservará el historial personal. Cuando
-existan múltiples ciclos se podrá añadir un filtro para el ciclo actual en
-la misma pantalla.
+El siguiente minibloque es generar un código y permitir que otra cuenta se
+una al ciclo. El ingreso usará la misma regla de una sola membresía por
+cuenta y asignará el rol de miembro. El administrador deberá cerrar su ciclo
+antes de salir. Para la salida y el reingreso queda pendiente conservar
+el acceso al historial personal de los grupos anteriores.
+
+**Registro del 15 de noviembre de 2026.** Se añadió la creación del primer
+ciclo desde Perfil y el aislamiento de datos y avisos por grupo.
+La fecha de fin prevista se elige en el calendario y se guarda por
+separado del cierre real.
+Se reunió la creación inicial y la de ciclos siguientes en Administración
+con el mismo formulario, se destacó el resultado del último cierre y se
+agregó el catálogo inicial por grupo.
 
 **Registro del 14 de noviembre de 2026.** Se migró a Riverpod el estado de
 visibilidad de contraseña y del editor de tareas. Después se añadió DM Sans
