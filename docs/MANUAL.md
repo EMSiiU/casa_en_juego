@@ -610,15 +610,48 @@ generales en la bandeja. Al tocarlas, Android abre la app en su flujo
 habitual. El listener de aperturas de Flutter sigue procesando los avisos
 privados para llevar al usuario a la ruta correspondiente. El responsable
 del proyecto reportó la prueba del aviso generado por una actividad
-enviada a revisión en Android, en los tres estados. Siguen pendientes
-Topics y la prueba de un envío directo desde Firebase Console en esos
-estados. iOS requiere APNs.
+enviada a revisión en Android, en los tres estados. Sigue pendiente la
+prueba de entrega directa desde Firebase Console en esos estados. iOS
+requiere APNs.
 
 Enlaces de estudio: [NotificationHost](../lib/features/notifications/presentation/notification_host.dart),
 [sesión de avisos](../lib/features/notifications/services/notification_session.dart),
 [Edge Function](../supabase/functions/send-task-notifications/handler.ts),
 [guía de push](push_notifications_setup.md)
 y [guía de recordatorios](inactivity_reminders_setup.md).
+
+### Suscripción a Avisos generales
+
+En **Perfil → Avisos generales**, cualquier cuenta puede activar la
+suscripción al Topic de Firebase `avisos_generales` si FCM está disponible
+en el dispositivo. Empieza desactivada y la preferencia se guarda por
+cuenta en ese dispositivo con `SharedPreferencesAsync`. La opción es
+independiente de **Avisos de revisión** y de tener un ciclo activo.
+
+`GeneralNoticesController.setEnabled()` solicita el cambio a
+`NotificationSession.setGeneralNotices()`. Al activar, la sesión verifica
+el permiso de Android, registra la instalación con FCM y llama al método
+`setGeneralNotices()` del gateway. Solo guarda el cambio si Firebase
+acepta la operación. Al cerrar sesión, la app retira la suscripción del
+dispositivo. Si vuelve la misma cuenta, `syncUser()` aplica su preferencia
+guardada y vuelve a suscribir cuando cambia el identificador de FCM.
+
+La difusión por tema se reserva para anuncios generales. Los avisos de
+revisión y los recordatorios conservan sus destinatarios individuales y
+su validación en Supabase. El Topic no requiere migraciones ni nuevas
+credenciales.
+
+Para probar el tema en el RMX3840, activa **Avisos generales** y concede
+el permiso de notificaciones. En **Firebase Console → Messaging**, crea
+un mensaje de notificación y destínalo al tema `avisos_generales` en la
+selección de destinatarios. Publica un mensaje con la app abierta, otro
+en segundo plano y otro después de cerrarla desde Recientes. Desactiva el
+interruptor y repite el envío al tema para comprobar la baja. La opción
+**Send test message** del flujo siguiente dirige el aviso a un dispositivo
+por FID y comprueba la entrega directa.
+
+[Suscripciones a Topics](https://firebase.google.com/docs/cloud-messaging/manage-topic-subscriptions)
+· [Envío desde Firebase Console](https://firebase.google.com/docs/cloud-messaging/send/firebase-console).
 
 ### Probar un aviso general desde Firebase Console
 
@@ -739,7 +772,7 @@ global, la familia tipográfica y la restauración del valor guardado.
 | Problemática, objetivo y alcance | Parcial. Hay un [planteamiento](../planteamiento.md). Falta incluir evidencia del problema y el alcance acordado con el maestro. |
 | Base de datos y sincronización | Supabase PostgreSQL aprobado por el maestro para datos y autenticación. Flutter vuelve a consultar después de las operaciones y en puntos de refresco de cada pantalla; los avisos privados también pueden invalidar consultas. La app carece de una suscripción general a Supabase Realtime. |
 | Almacenamiento y caché local de imágenes | La foto de perfil se sube a Supabase Storage privado. Perfil y Tareas la muestran con alternativa de foto OAuth o iniciales. La caché persistente para uso sin conexión sigue pendiente. |
-| FCM desde consola, Topics y tres estados | Parcial. Hay escuchador global, aviso general en primer plano y rutas para los avisos privados. Pendientes Topics y prueba de envío directo en Android en los tres estados. |
+| FCM desde consola, Topics y tres estados | Hay escuchador global, aviso general en primer plano y una opción de suscripción al Topic `avisos_generales`. Pendientes la prueba real desde Firebase Console en Android en los tres estados y la confirmación de baja del tema. |
 | Auth, alta por correo y dos proveedores | Implementado. Incluye registro, verificación, reenvío, recuperación por correo y acceso con Google y GitHub mediante Supabase Auth. El responsable del proyecto reportó que funcionaron el correo y ambos proveedores en su entorno. |
 | Perfil y avatar sincronizado | Implementado. Nombre editable y foto opcional que se puede subir, reemplazar o quitar. Perfil y Tareas muestran la foto de la cuenta con retorno a la imagen OAuth o a las iniciales. |
 | Creación y acceso a ciclos | Implementados la creación, el ingreso mediante código y el historial tras el cierre. Cada cuenta tiene una sola membresía activa. Queda pendiente la salida individual durante un ciclo activo. |
@@ -982,12 +1015,12 @@ Rutas relativas a `lib/features/notifications/`.
 | Archivo | Funciones y responsabilidad |
 |---|---|
 | `models/push_notice.dart` | `fromData()` interpreta avisos de la app; `fromForeground()` reconoce también los mensajes generales de Firebase Console en primer plano. |
-| `providers/notification_providers.dart` | Conecta gateway, repositorio y sesión de notificaciones con Riverpod. |
-| `repositories/push_gateway.dart` | Consulta permisos, registra o desregistra el dispositivo y expone avisos recibidos o abiertos por FCM. |
+| `providers/notification_providers.dart` | Conecta gateway, repositorio y sesión de notificaciones con Riverpod. `GeneralNoticesController` lee y actualiza la preferencia de suscripción. |
+| `repositories/push_gateway.dart` | Consulta permisos, registra o desregistra el dispositivo y expone avisos recibidos o abiertos por FCM. `setGeneralNotices()` añade o quita la suscripción al tema. |
 | `repositories/notification_repository.dart` | `register()` y `unregister()` sincronizan el registro de dispositivo con Supabase. |
-| `services/notification_session.dart` | `start()`, `syncUser()` y `disconnect()` conectan los eventos FCM con la cuenta y el dispositivo activos. |
+| `services/notification_session.dart` | `start()`, `syncUser()` y `disconnect()` conectan los eventos FCM con la cuenta y el dispositivo activos. `setGeneralNotices()` serializa el cambio de suscripción y guarda la preferencia local. |
 | `presentation/notification_host.dart` | `_onNotice()` invalida datos o abre la ruta correspondiente; `_showNotice()` presenta el aviso en primer plano. |
-| `presentation/notification_status_tile.dart` | Muestra en Perfil el estado y los permisos de los avisos. |
+| `presentation/notification_status_tile.dart` | Muestra en Perfil el estado y los permisos de los avisos, y el interruptor de suscripción a Avisos generales. |
 
 ### 11.9 Supabase y el orden de instalación
 

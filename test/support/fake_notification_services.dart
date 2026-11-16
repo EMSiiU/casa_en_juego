@@ -14,6 +14,8 @@ class FakePushGateway implements PushGateway {
   Object? deleteError;
   int permissionRequests = 0;
   int deletes = 0;
+  final generalSubscriptions = <bool>[];
+  Object? topicError;
   @override
   String get platform => 'android';
   @override
@@ -28,6 +30,12 @@ class FakePushGateway implements PushGateway {
   Future<void> deleteToken() async {
     deletes++;
     if (deleteError != null) throw deleteError!;
+  }
+
+  @override
+  Future<void> setGeneralNotices(bool enabled) async {
+    if (topicError != null) throw topicError!;
+    generalSubscriptions.add(enabled);
   }
 
   @override

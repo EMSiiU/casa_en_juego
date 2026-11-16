@@ -88,7 +88,22 @@ Al cerrar el ciclo, los participantes pueden crear otro o unirse con un código 
 - **Foto opcional.** Pulsa **Agregar foto** o **Cambiar foto** y elige un JPG, PNG o WebP de hasta 2 MB. Usa **Quitar foto** si ya no quieres mostrarla. La app usará la foto de Google o GitHub si está disponible, o tus iniciales.
 - **Apariencia.** Usa el interruptor **Modo oscuro** para cambiar entre los temas.
 - **Avisos en el celular.** Durante un ciclo activo, activa **Avisos de revisión** y permite las notificaciones cuando te lo pida el teléfono.
+- **Avisos generales.** Activa esta opción en **Perfil** para recibir anuncios de Casa en Juego en el celular. Puedes desactivarla desde el mismo lugar.
 - **Sesión.** Usa **Cerrar sesión** desde Perfil.
+
+## 6. Envía un aviso general desde Firebase Console
+
+Estos pasos son para quien tenga acceso al proyecto de Casa en Juego en Firebase. El aviso se envía a los celulares que tengan activados los avisos generales.
+
+1. En el celular de prueba, abre Casa en Juego y activa **Perfil → Avisos generales**. Acepta el permiso de notificaciones si Android te lo pide.
+2. Abre [Firebase Console](https://console.firebase.google.com/) y selecciona el proyecto de Casa en Juego.
+3. Ve a **Messaging → New campaign → Notifications**. Escribe un título como **Prueba de Casa en Juego** y un texto como **Este es un aviso general de prueba**.
+4. Pulsa **Next**. En **Target** (destinatarios), selecciona **Topic** y elige `avisos_generales`.
+5. En **Scheduling** (programación), selecciona **Now**. Pulsa **Review**, comprueba que el destinatario sea `avisos_generales` y pulsa **Publish**.
+
+El botón **Send test message** envía a un solo celular. Para probar que funciona la suscripción a **Avisos generales**, usa la campaña dirigida al tema del paso 4.
+
+Para comprobar la recepción, envía un aviso con la app abierta y búscalo dentro de Casa en Juego. Envía otro con la app en segundo plano y otro después de cerrarla desde **Recientes**. En esos dos casos, revisa la bandeja de notificaciones de Android.
 
 ## Si algo no funciona
 
@@ -98,4 +113,4 @@ Al cerrar el ciclo, los participantes pueden crear otro o unirse con un código 
 | La app dice que el código de invitación es inválido o que el ciclo terminó | Pide al administrador el código de un ciclo que siga activo. |
 | No ves las tareas o el ranking | Revisa en Perfil si tienes un ciclo activo. Si el anterior terminó, puedes consultar su resultado en **Historial de ciclos**. |
 | Una tarea todavía no sumó puntos | Abre **Mi actividad** y revisa si sigue pendiente o si fue rechazada. |
-| No llegan avisos al celular | Comprueba **Avisos de revisión** en Perfil y el permiso de notificaciones de Casa en Juego en los ajustes del teléfono. |
+| No llegan avisos al celular | Comprueba que esté activada la opción correspondiente en **Perfil**, ya sea **Avisos de revisión** o **Avisos generales**. Revisa también el permiso de notificaciones de Casa en Juego en los ajustes del teléfono. |

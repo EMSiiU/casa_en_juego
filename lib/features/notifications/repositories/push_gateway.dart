@@ -6,11 +6,14 @@ import 'package:flutter/foundation.dart';
 
 import '../models/push_notice.dart';
 
+const generalNoticesTopic = 'avisos_generales';
+
 abstract interface class PushGateway {
   String get platform;
   Future<bool> permission({required bool request});
   Future<String?> getToken();
   Future<void> deleteToken();
+  Future<void> setGeneralNotices(bool enabled);
   Stream<String> get tokenChanges;
   Stream<PushNotice> get foregroundNotices;
   Stream<PushNotice> get openedNotices;
@@ -72,6 +75,13 @@ class FirebasePushGateway implements PushGateway {
 
   @override
   Future<void> deleteToken() => _messaging.unregister();
+  @override
+  Future<void> setGeneralNotices(bool enabled) =>
+      (enabled
+              ? _messaging.subscribeToTopic(generalNoticesTopic)
+              : _messaging.unsubscribeFromTopic(generalNoticesTopic))
+          .timeout(const Duration(seconds: 15));
+
   @override
   Stream<String> get tokenChanges => _messaging.onRegistered;
   Stream<PushNotice> _notices(

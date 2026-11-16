@@ -486,6 +486,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 ),
                 NotificationStatusTile(user: user),
               ],
+              GeneralNoticesTile(userId: user.id, enabled: canEdit),
             ],
           ),
         ),

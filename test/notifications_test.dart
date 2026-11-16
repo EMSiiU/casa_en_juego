@@ -5,6 +5,7 @@ import 'package:casa_en_juego/features/activity/providers/activity_providers.dar
 import 'package:casa_en_juego/features/auth/models/app_user.dart';
 import 'package:casa_en_juego/features/auth/providers/auth_providers.dart';
 import 'package:casa_en_juego/features/notifications/models/push_notice.dart';
+import 'package:casa_en_juego/features/notifications/presentation/notification_status_tile.dart';
 import 'package:casa_en_juego/features/notifications/providers/notification_providers.dart';
 import 'package:casa_en_juego/features/notifications/services/notification_session.dart';
 import 'package:casa_en_juego/features/reviews/providers/reviews_providers.dart';
@@ -13,6 +14,7 @@ import 'package:casa_en_juego/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fake_activity_repository.dart';
 import 'support/fake_notification_services.dart';
@@ -33,6 +35,16 @@ const disabledUser = AppUser(
   notificationsEnabled: false,
 );
 
+class FakeNoticePreferences extends Fake implements SharedPreferencesAsync {
+  final values = <String, bool>{};
+
+  @override
+  Future<bool?> getBool(String key) async => values[key];
+
+  @override
+  Future<void> setBool(String key, bool value) async => values[key] = value;
+}
+
 void main() {
   late FakePushGateway gateway;
   late FakeNotificationRepository repository;
@@ -40,7 +52,11 @@ void main() {
   setUp(() {
     gateway = FakePushGateway();
     repository = FakeNotificationRepository();
-    session = NotificationSession(gateway: gateway, repository: repository);
+    session = NotificationSession(
+      gateway: gateway,
+      repository: repository,
+      preferences: FakeNoticePreferences(),
+    );
   });
   tearDown(() async {
     session.dispose();
@@ -109,6 +125,65 @@ void main() {
     expect(session.status, PushDeviceStatus.denied);
   });
   test(
+    'General notices work independently of private review notices',
+    () async {
+      await session.syncUser(disabledUser);
+      expect(await session.generalNoticesEnabled(disabledUser.id), isFalse);
+      await session.setGeneralNotices(disabledUser.id, true);
+      expect(await session.generalNoticesEnabled(disabledUser.id), isTrue);
+      await session.syncUser(disabledUser, requestPermission: false);
+      expect(gateway.generalSubscriptions, [true]);
+      expect(repository.registered, isEmpty);
+
+      await session.setGeneralNotices(disabledUser.id, false);
+      expect(gateway.generalSubscriptions, [true, false]);
+      expect(await session.generalNoticesEnabled(disabledUser.id), isFalse);
+    },
+  );
+  test(
+    'Logout removes the topic and only the same account restores it',
+    () async {
+      await session.syncUser(disabledUser);
+      await session.setGeneralNotices(disabledUser.id, true);
+      await session.disconnect();
+      expect(gateway.generalSubscriptions, [true, false]);
+
+      const anotherUser = AppUser(
+        id: 'another-user',
+        name: 'Otra cuenta',
+        email: 'otra@familia.es',
+        role: UserRole.sibling,
+        notificationsEnabled: false,
+      );
+      await session.syncUser(anotherUser);
+      expect(gateway.generalSubscriptions, [true, false]);
+
+      await session.syncUser(disabledUser, requestPermission: false);
+      await session.syncUser(
+        disabledUser,
+        requestPermission: false,
+        token: 'changed-installation',
+      );
+      expect(gateway.generalSubscriptions, [true, false, true, true]);
+      expect(repository.registered, isEmpty);
+    },
+  );
+  test('Denials and failed subscriptions do not save an opt-in', () async {
+    await session.syncUser(disabledUser);
+    gateway.allowed = false;
+    await expectLater(
+      session.setGeneralNotices(disabledUser.id, true),
+      throwsStateError,
+    );
+    gateway.allowed = true;
+    gateway.topicError = StateError('offline');
+    await expectLater(
+      session.setGeneralNotices(disabledUser.id, true),
+      throwsStateError,
+    );
+    expect(await session.generalNoticesEnabled(disabledUser.id), isFalse);
+  });
+  test(
     'Token rotation registers the replacement and removes the previous binding',
     () async {
       await session.syncUser(testUser);
@@ -171,6 +246,40 @@ void main() {
       expect(gateway.deletes, 1);
     },
   );
+
+  testWidgets('Profile switch reports and changes the topic subscription', (
+    tester,
+  ) async {
+    final localSession = NotificationSession(
+      gateway: gateway,
+      repository: repository,
+      preferences: FakeNoticePreferences(),
+    );
+    addTearDown(localSession.dispose);
+    await localSession.syncUser(disabledUser);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          notificationSessionProvider.overrideWithValue(localSession),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: GeneralNoticesTile(userId: disabledUser.id, enabled: true),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final tile = find.widgetWithText(SwitchListTile, 'Avisos generales');
+    expect(tester.widget<SwitchListTile>(tile).value, isFalse);
+    await tester.tap(find.byType(Switch));
+    await tester.pumpAndSettle();
+    expect(tester.widget<SwitchListTile>(tile).value, isTrue);
+    await tester.tap(find.byType(Switch));
+    await tester.pumpAndSettle();
+    expect(tester.widget<SwitchListTile>(tile).value, isFalse);
+    expect(gateway.generalSubscriptions, [true, false]);
+  });
 
   Future<ProviderContainer> start(WidgetTester tester) async {
     final auth = FakeAuthRepository()..user = testUser;
