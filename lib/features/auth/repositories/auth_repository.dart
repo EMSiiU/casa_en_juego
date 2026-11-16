@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/app_user.dart';
@@ -32,35 +35,75 @@ class SupabaseAuthRepository implements AuthRepository {
   @override
   Stream<AppUser?> watchUser() {
     // Supabase emite initialSession al suscribirse y restaura la sesión local.
-    // Los refrescos de token no consultan el perfil si la identidad y la foto siguen iguales.
+    // Los refrescos de token no repiten la consulta si la identidad sigue igual.
     return _client.auth.onAuthStateChange
         .map((event) {
           final user = event.session?.user;
           return user != null && user.emailConfirmedAt != null
-              ? (id: user.id, avatarUrl: providerAvatarUrl(user))
+              ? (
+                  id: user.id,
+                  avatarUrl: providerAvatarUrl(user),
+                  canEditPhoto: user.appMetadata['provider'] == 'email',
+                )
               : null;
         })
         .distinct()
         .asyncMap((identity) async {
           if (identity == null) return null;
-          var data = await _loadProfile(identity.id);
-          if (data == null) {
-            await _client.rpc('ensure_personal_profile');
-            data = await _loadProfile(identity.id);
-          }
+          final data = await _readProfile(identity.id);
           if (data == null) {
             throw const AuthFailure(
               'No pudimos cargar tu perfil. Intenta de nuevo.',
             );
           }
-          return AppUser.fromJson(data, avatarUrl: identity.avatarUrl);
-        });
+          return AppUser.fromJson(
+            data,
+            avatarUrl: identity.avatarUrl,
+            canEditPhoto: identity.canEditPhoto,
+          );
+        })
+        .transform(
+          StreamTransformer.fromHandlers(
+            handleError: (error, stack, sink) {
+              final user = _client.auth.currentUser;
+              if (user != null &&
+                  user.emailConfirmedAt != null &&
+                  (error is http.ClientException ||
+                      error is TimeoutException ||
+                      error is AuthRetryableFetchException)) {
+                final name = user.userMetadata?['name'];
+                sink.addError(
+                  OfflineProfileFailure(
+                    userId: user.id,
+                    name: name is String && name.trim().isNotEmpty
+                        ? name
+                        : user.email ?? '',
+                    canEditPhoto: user.appMetadata['provider'] == 'email',
+                    avatarUrl: providerAvatarUrl(user),
+                  ),
+                  stack,
+                );
+              } else {
+                sink.addError(error, stack);
+              }
+            },
+          ),
+        );
   }
 
   // Fetch the full personal row to keep existing sessions usable before the
   // personal accounts migration adds is_household_member.
   Future<Map<String, dynamic>?> _loadProfile(String id) =>
       _client.from('users').select().eq('id', id).maybeSingle();
+
+  Future<Map<String, dynamic>?> _readProfile(String id) async {
+    final profile = await _loadProfile(id).timeout(const Duration(seconds: 8));
+    if (profile != null) return profile;
+    await _client
+        .rpc('ensure_personal_profile')
+        .timeout(const Duration(seconds: 8));
+    return _loadProfile(id).timeout(const Duration(seconds: 8));
+  }
 
   @override
   Future<void> signIn({required String email, required String password}) async {

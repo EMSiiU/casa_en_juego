@@ -264,10 +264,17 @@ lugares si el proveedor entregó una.
 · [Vinculación de identidades](https://supabase.com/docs/guides/auth/auth-identity-linking)
 · [Imágenes de red en Flutter](https://api.flutter.dev/flutter/widgets/Image/Image.network.html).
 
-### Foto de perfil personalizada
+### Foto de perfil y caché local
 
-Desde **Perfil → Agregar foto** puedes elegir un JPG, PNG o WebP de hasta
-2 MB. `file_selector.openFile()` abre el selector de documentos de Android
+Las cuentas creadas con correo y contraseña pueden elegir un JPG, PNG o
+WebP de hasta 2 MB en **Perfil → Agregar foto**. Las cuentas creadas con
+Google o GitHub muestran el avatar del proveedor o sus iniciales.
+Supabase registra el proveedor de alta en `app_metadata.provider`.
+La regla sigue el origen de la cuenta si se vinculan varias formas de
+acceso. `watchUser()` lo traduce a `AppUser.canEditPhoto` y Perfil usa ese
+valor para mostrar los controles y autorizar la acción del controlador.
+
+`file_selector.openFile()` abre el selector de documentos de Android
 (`ACTION_OPEN_DOCUMENT`) o el diálogo de archivos del navegador. En Android
 puede mostrar Descargas y proveedores como Drive, según el dispositivo.
 [`ProfilePhoto.pick()`](../lib/features/profile/models/profile_photo.dart)
@@ -279,10 +286,12 @@ decodificar. Cancelar conserva la foto actual. Cuando ya hay una foto propia,
 flowchart LR
     Profile["Perfil"] --> Controller["ProfileController · cambiar o quitar"]
     Controller --> Repo["AccountPhotoRepository"]
-    Repo --> Bucket["Storage privado · account-avatars"]
-    Bucket --> Photo["accountPhotoProvider por usuario"]
-    Photo --> Avatar["AccountAvatar · Perfil y menú de cuenta"]
-    OAuth["Foto de Google o GitHub"] -. alternativa .-> Avatar
+    Repo --> Bucket["Storage privado · RLS por cuenta y proveedor de alta"]
+    Repo --> Cache["Archivos privados por cuenta · Android e iOS"]
+    OAuth["Foto de Google o GitHub"] --> Cache
+    Repo --> Avatar["AccountAvatar · Perfil y menú de cuenta"]
+    Cache --> Avatar
+    Cache --> Offline["Pantalla de sesión · imagen sin conexión"]
 ```
 
 [`SupabaseAccountPhotoRepository`](../lib/features/auth/repositories/account_photo_repository.dart)
@@ -290,30 +299,55 @@ usa la ruta `<id de usuario>/avatar`. `save()` hace un *upsert* en esa ruta
 y `remove()` la elimina mediante la API de Storage. Así el reemplazo
 mantiene un solo objeto por cuenta. Al terminar, el controlador invalida
 [`accountPhotoProvider`](../lib/features/auth/providers/account_photo_providers.dart).
-El proveedor vuelve a descargar los bytes con la sesión autenticada y evita
-reutilizar la versión anterior de la caché. `AccountAvatar` prueba primero
-la foto propia, después la del proveedor vinculado y por último las iniciales.
-Si falla la carga, se muestra la alternativa disponible. Al deslizar hacia
-abajo desde Perfil, la actualización general vuelve a consultar la foto.
+El repositorio serializa lecturas y escrituras para que una descarga anterior
+no reponga la foto reemplazada. Usa el servidor en línea y recupera la copia
+local si la descarga falla por conexión. Un 404 o una eliminación confirmada
+borran la copia local. Al deslizar hacia abajo en Perfil se vuelve a consultar
+la foto.
+
+En Android e iOS, [`AccountPhotoCache`](../lib/features/auth/repositories/account_photo_cache.dart)
+guarda un archivo de foto personalizada y otro de proveedor por cuenta
+en la carpeta de soporte de la aplicación, obtenida con `path_provider`.
+`providerAvatarPhotoProvider` reutiliza la foto OAuth hasta por un día
+y vuelve a buscarla al cambiar la URL o caducar ese periodo. Si el proveedor
+está inaccesible, recupera la copia de la misma URL. `AccountAvatar` elige
+foto propia cuando el origen permite editar, foto OAuth o iniciales.
+En Chrome y Edge, el avatar se sigue cargando con conexión.
+
+Al reabrir sin internet, si Supabase restaura una sesión confirmada y falla
+la consulta del perfil por conexión, `OfflineProfileFailure` lleva el
+identificador de esa cuenta a `SessionPage`. La pantalla usa solo archivos
+locales y permite reintentar cuando regrese la conexión. El acceso a datos
+del ciclo sigue requiriendo validar la sesión y el perfil en línea.
 
 La [migración de fotos](../supabase/migrations/20261114000300_add_account_avatars.sql)
-crea el bucket privado con el límite de 2 MB y los tres tipos MIME. La política
-RLS compara la ruta exacta con `auth.uid()` y permite a cada cuenta
-autenticada leer, subir, reemplazar y borrar su propio objeto. El archivo se
-comparte entre las formas de acceso vinculadas a la misma cuenta.
+crea el bucket privado con el límite de 2 MB y los tres tipos MIME.
+La [migración de permisos del avatar](../supabase/migrations/20261116000100_restrict_account_avatar_edits.sql)
+añade `private.can_manage_account_avatar()` a la política. Storage exige
+la ruta exacta `<auth.uid()>/avatar`, correo confirmado y
+`auth.users.raw_app_meta_data.provider = 'email'`. El servidor evalúa ese
+valor con los datos de Auth. Los objetos antiguos de cuentas OAuth quedan
+almacenados y fuera del acceso de la app.
 [Buckets privados de Supabase](https://supabase.com/docs/guides/storage/buckets/fundamentals)
+· [Proveedor de alta en Supabase](https://supabase.com/docs/guides/auth/users)
 · [Selector de archivos de Flutter](https://pub.dev/packages/file_selector).
 
-1. Ejecuta la migración una vez en **Supabase → SQL Editor → New query**.
-   Confirma en **Storage** que aparece el bucket privado `account-avatars`.
-2. Ejecuta `flutter pub get` y reinicia la app para cargar el selector. Prueba
-   **Agregar foto**, **Cambiar foto** y **Quitar foto** en Chrome y en Android.
-3. Cierra sesión y vuelve a entrar antes de quitar la foto para comprobar que
-   persiste. Con una cuenta vinculada, prueba el otro proveedor. Si la cuenta
-   pertenece al grupo, revisa también el icono en Tareas.
-4. Al quitar la foto, comprueba que se recupera la foto del proveedor o las
-   iniciales. Prueba cancelar el selector y el rechazo de un archivo que
-   supere los 2 MB.
+1. En **Supabase → SQL Editor → New query**, pega y ejecuta
+   `20261116000100_restrict_account_avatar_edits.sql`. El bucket
+   `account-avatars` ya existe en instalaciones que tenían fotos.
+2. Ejecuta `flutter pub get` y reinicia la compilación de la app. Con una
+   cuenta creada por correo, agrega, cambia y quita la foto. Revisa Perfil
+   y Tareas si la cuenta participa en un ciclo.
+3. En Android, carga una foto y déjala visible. Sin cerrar sesión, activa
+   modo avión, cierra Casa en Juego desde Recientes y vuelve a abrirla.
+   En la pantalla de conexión debe verse el avatar guardado. Recupera
+   internet y pulsa **Reintentar**. Comprueba que una foto eliminada ya no
+   se ve al repetir el paso sin conexión.
+4. Con internet, entra con una cuenta creada mediante Google o GitHub y
+   comprueba su foto y la ausencia de los botones de edición. Usa una cuenta
+   de un correo distinto al de la primera para comprobar el aislamiento.
+   Si ambas formas de acceso comparten la cuenta, se aplica el proveedor
+   de alta que muestra Supabase Auth.
 
 ## 4. Tareas, revisiones, historial y ranking
 
@@ -530,7 +564,7 @@ alter policy seasons_read on public.seasons using (
 | `task_logs_read` | Se aplica el acceso al ciclo que contiene la solicitud. **Mi actividad** añade el filtro por solicitante para mostrar las solicitudes de la propia cuenta. |
 | `task_logs_insert` | Permite enviar una solicitud pendiente como autor autenticado en un ciclo activo visible. El trigger comprueba que autor, tarea y ciclo pertenezcan al mismo ámbito. |
 | `task_logs_review` | Un miembro distinto del solicitante resuelve una petición pendiente de su ciclo activo. El servidor asigna el revisor y exige que el resultado sea aprobado o rechazado. |
-| `Users manage their own account avatar` | El rol autenticado puede leer, subir, reemplazar o borrar el archivo `<auth.uid()>/avatar` en `account-avatars`. |
+| `Users manage their own account avatar` | Una cuenta creada por correo y con el correo confirmado puede leer, subir, reemplazar o borrar su propio archivo `<auth.uid()>/avatar`. |
 | `push_devices` y `push_jobs` | Tienen RLS activo y los clientes carecen de permisos directos. Los dispositivos se registran con RPC. La cola se procesa con `service_role`. |
 
 Una RPC es una función de PostgreSQL que la app llama mediante la API de
@@ -555,6 +589,7 @@ where task.season_id = p_season_id
 |---|---|
 | `public.ensure_personal_profile()` | Flutter la llama cuando falta el perfil. Lee el correo confirmado de Auth e inserta el perfil personal. `ON CONFLICT DO NOTHING` conserva un perfil existente. |
 | `public.rename_my_profile(p_name)` | Perfil solicita el cambio de nombre. La función limpia y valida el texto y modifica solamente la cuenta autenticada con correo confirmado. |
+| `private.can_manage_account_avatar()` | La política de Storage verifica en Auth que la cuenta autenticada tenga correo confirmado y que su proveedor de alta sea `email`. |
 | `private.is_member()`, `private.is_admin()`, `private.current_cycle_group_id()` | Las políticas y el registro de dispositivos comprueban membresía, rol y ámbito de la sesión. Las consultas privilegiadas evitan recursión al evaluar las políticas de `users`. |
 | `public.create_first_cycle(p_name, p_planned_end_date)` | Administración envía el nombre y fin previsto. La función privada que invoca bloquea el perfil con `FOR UPDATE`, verifica la ausencia de membresía, crea un ámbito y un ciclo y asigna el rol de administrador. Una firma previa acepta días para la creación compatible. |
 | `private.seed_cycle_group_tasks()` | El trigger de inserción del ámbito copia el catálogo de la plantilla. La copia forma parte de la misma transacción que la creación del ciclo. |
@@ -771,10 +806,10 @@ global, la familia tipográfica y la restauración del valor guardado.
 |---|---|
 | Problemática, objetivo y alcance | Parcial. Hay un [planteamiento](../planteamiento.md). Falta incluir evidencia del problema y el alcance acordado con el maestro. |
 | Base de datos y sincronización | Supabase PostgreSQL aprobado por el maestro para datos y autenticación. Flutter vuelve a consultar después de las operaciones y en puntos de refresco de cada pantalla; los avisos privados también pueden invalidar consultas. La app carece de una suscripción general a Supabase Realtime. |
-| Almacenamiento y caché local de imágenes | La foto de perfil se sube a Supabase Storage privado. Perfil y Tareas la muestran con alternativa de foto OAuth o iniciales. La caché persistente para uso sin conexión sigue pendiente. |
+| Almacenamiento y caché local de imágenes | Supabase Storage privado guarda la foto personal. Android e iOS conservan la copia por cuenta y la muestran al reabrir sin conexión cuando hay una sesión guardada. Queda pendiente confirmar la aceptación de Supabase Storage para este requisito. |
 | FCM desde consola, Topics y tres estados | Hay escuchador global, aviso general en primer plano y una opción de suscripción al Topic `avisos_generales`. Pendientes la prueba real desde Firebase Console en Android en los tres estados y la confirmación de baja del tema. |
 | Auth, alta por correo y dos proveedores | Implementado. Incluye registro, verificación, reenvío, recuperación por correo y acceso con Google y GitHub mediante Supabase Auth. El responsable del proyecto reportó que funcionaron el correo y ambos proveedores en su entorno. |
-| Perfil y avatar sincronizado | Implementado. Nombre editable y foto opcional que se puede subir, reemplazar o quitar. Perfil y Tareas muestran la foto de la cuenta con retorno a la imagen OAuth o a las iniciales. |
+| Perfil y avatar sincronizado | Nombre editable y avatar compartido entre Perfil y Tareas. Solo la cuenta creada por correo puede subir, reemplazar o quitar su foto. Aplicar la migración de permisos en el proyecto remoto. |
 | Creación y acceso a ciclos | Implementados la creación, el ingreso mediante código y el historial tras el cierre. Cada cuenta tiene una sola membresía activa. Queda pendiente la salida individual durante un ciclo activo. |
 | Estado con Riverpod | Implementado. Las ocho llamadas explícitas a `setState` fueron sustituidas. La búsqueda en `lib/` tampoco encontró usos explícitos de `ValueNotifier`. |
 | Tipografía y tema dinámico | Implementados. DM Sans viene incluida con la app y Perfil permite cambiar y recordar el modo claro u oscuro. |
@@ -904,13 +939,14 @@ Rutas relativas a `lib/features/auth/`.
 | `repositories/auth_repository.dart` | `watchUser()` combina sesión, perfil y verificación. `signIn()`, `signUp()`, `resendSignUpCode()`, `confirmEmail()`, `requestPasswordReset()`, `resetPassword()` y `signOut()` implementan operaciones de cuenta. |
 | `repositories/oauth_sign_in.dart` | `oauthSignInProvider` inicia el flujo de Google o GitHub con el retorno adecuado para web o móvil. |
 | `repositories/password_recovery.dart` | `sendCode()` solicita el OTP. `reset()` lo verifica y cambia la contraseña usando la credencial de recuperación. |
+| `repositories/account_photo_cache.dart` | `read()`, `write()` y `removeCustom()` gestionan los archivos de avatar locales por cuenta. |
 | `repositories/account_photo_repository.dart` | `load()`, `save()` y `remove()` leen, escriben y retiran la foto personal en Storage. |
 | `providers/auth_providers.dart` | `currentUserProvider` entrega el usuario autenticado. `AuthController` coordina el acceso, el nombre local y el cierre de sesión con dispositivos push. |
 | `providers/email_account_provider.dart` | `EmailAccountController.sendCode()` y `verify()` controlan los pasos de alta y recuperación; el controlador mantiene estado, errores y confirmación. |
-| `providers/account_photo_providers.dart` | `accountPhotoRepositoryProvider` crea el repositorio y `accountPhotoProvider` carga la foto de la cuenta. |
+| `providers/account_photo_providers.dart` | Crea el repositorio de fotos y expone la foto personal, la lectura solo local y la del proveedor OAuth. |
 | `presentation/login_page.dart` | `_submit()` valida correo y contraseña; la pantalla enlaza alta, recuperación y acceso social. |
 | `presentation/email_account_page.dart` | Adapta el formulario al alta o la recuperación, presenta el campo de código y expone el reenvío cuando procede. |
-| `presentation/session_page.dart` | Presenta la carga inicial de sesión y permite recuperarse de un error de perfil. |
+| `presentation/session_page.dart` | Presenta la carga y permite reintentar. Si falla la conexión y hay una sesión confirmada, muestra el avatar local de esa cuenta. |
 | `presentation/widgets/account_avatar.dart` | Muestra la foto personal, la foto OAuth o las iniciales según disponibilidad. |
 | `presentation/widgets/account_menu.dart` | Presenta las acciones de cuenta y ejecuta la salida mediante el controlador. |
 | `presentation/widgets/social_sign_in_buttons.dart` | Muestra los botones e iconos de Google y GitHub y los conecta al acceso OAuth. |
@@ -1044,6 +1080,7 @@ base y explica qué cambios se hicieron sobre una instalación existente.
 | 10 | `migrations/20261115000300_add_next_cycle_and_default_tasks.sql` | Prepara la plantilla de tareas y el flujo de creación de ciclos siguientes que después se hace independiente. |
 | 11 | `migrations/20261115000400_add_independent_cycles.sql` | Crea un ámbito nuevo para cada ciclo, archiva catálogo y participantes, conserva historial y libera membresías al cerrar. |
 | 12 | `migrations/20261115000500_add_cycle_invites.sql` | Crea, entrega y valida los códigos de acceso al ciclo activo. |
+| 13 | `migrations/20261116000100_restrict_account_avatar_edits.sql` | Restringe Storage a la cuenta dueña creada por correo verificado. |
 
 Los primeros cuatro cambios tienen el mismo prefijo de versión. El
 orden de la tabla es el que usan las pruebas y debe respetarse al
@@ -1071,6 +1108,7 @@ automatizado con `supabase db push`.
 |---|---|
 | `widget_test.dart`, `account_menu_test.dart` | Inicio, restauración y cierre de sesión, rutas protegidas y fallos visibles. |
 | `oauth_sign_in_test.dart`, `password_recovery_test.dart`, `provider_avatar_test.dart` | Acceso con proveedores, recuperación y lectura de metadatos del avatar. |
+| `account_photo_repository_test.dart` | Aislamiento de archivos por cuenta y URL, persistencia al volver a crear la caché, limpieza al faltar el objeto y restauración de sesión sin conexión. |
 | `profile_test.dart`, `profile_repository_test.dart` | Perfil, nombre, tema, foto, permisos, membresía y llamadas a Supabase. |
 | `admin_test.dart`, `admin_repository_test.dart` | Acceso administrativo, formulario, catálogo, invitación, historial y cierre. |
 | `tasks_test.dart`, `tasks_repository_test.dart`, `task_failure_test.dart`, `daily_task_limits_test.dart` | Vista de tareas, lecturas y envíos, errores y restricciones diarias. |

@@ -26,6 +26,7 @@ const testUser = AppUser(
   email: 'ana@familia.es',
   role: UserRole.sibling,
   notificationsEnabled: true,
+  canEditPhoto: true,
 );
 
 class FakeAuthRepository implements AuthRepository {

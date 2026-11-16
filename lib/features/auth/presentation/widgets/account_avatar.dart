@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,19 +11,42 @@ class AccountAvatar extends ConsumerWidget {
     required this.name,
     this.userId,
     this.avatarUrl,
+    this.canEditPhoto = false,
+    this.localOnly = false,
     this.radius = 20,
   });
 
   final String name;
   final String? userId;
   final String? avatarUrl;
+  final bool canEditPhoto;
+  final bool localOnly;
   final double radius;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final photo = userId == null
-        ? null
-        : ref.watch(accountPhotoProvider(userId!)).value;
+    final id = userId;
+    final url = avatarUrl;
+    final photo = id != null && canEditPhoto
+        ? ref
+              .watch(
+                localOnly
+                    ? cachedAccountPhotoProvider(id)
+                    : accountPhotoProvider(id),
+              )
+              .value
+        : null;
+    final providerBytes = photo == null && id != null && url != null && !kIsWeb
+        ? ref
+              .watch(
+                providerAvatarPhotoProvider((
+                  userId: id,
+                  url: url,
+                  localOnly: localOnly,
+                )),
+              )
+              .value
+        : null;
     final initials = name
         .trim()
         .split(RegExp(r'\s+'))
@@ -37,10 +61,10 @@ class AccountAvatar extends ConsumerWidget {
         style: TextStyle(fontSize: radius * 0.65, fontWeight: FontWeight.bold),
       ),
     );
-    final providerPhoto = avatarUrl == null
-        ? fallback
-        : Image.network(
-            avatarUrl!,
+    final bytes = photo ?? providerBytes;
+    final providerPhoto = kIsWeb && url != null && !localOnly
+        ? Image.network(
+            url,
             width: radius * 2,
             height: radius * 2,
             fit: BoxFit.cover,
@@ -49,16 +73,17 @@ class AccountAvatar extends ConsumerWidget {
             frameBuilder: (context, child, frame, synchronous) =>
                 frame != null || synchronous ? child : fallback,
             errorBuilder: (context, error, stack) => fallback,
-          );
+          )
+        : fallback;
     return CircleAvatar(
       radius: radius,
       backgroundColor: context.appColors.primaryContainer,
       foregroundColor: context.appColors.onSurface,
       child: ClipOval(
-        child: photo == null
+        child: bytes == null
             ? providerPhoto
             : Image.memory(
-                photo,
+                bytes,
                 width: radius * 2,
                 height: radius * 2,
                 cacheWidth: 256,

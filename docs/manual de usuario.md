@@ -85,7 +85,8 @@ Al cerrar el ciclo, los participantes pueden crear otro o unirse con un código 
 ## 5. Personaliza tu perfil
 
 - **Nombre.** Pulsa **Editar nombre**, escribe el que quieras mostrar y elige **Guardar nombre**.
-- **Foto opcional.** Pulsa **Agregar foto** o **Cambiar foto** y elige un JPG, PNG o WebP de hasta 2 MB. Usa **Quitar foto** si ya no quieres mostrarla. La app usará la foto de Google o GitHub si está disponible, o tus iniciales.
+- **Foto opcional.** Si creaste tu cuenta con correo y contraseña, pulsa **Agregar foto** o **Cambiar foto** y elige un JPG, PNG o WebP de hasta 2 MB. Puedes retirarla con **Quitar foto**. Las cuentas creadas con Google o GitHub usan la foto del proveedor cuando está disponible, o muestran sus iniciales.
+- **Foto sin internet.** En el celular, abre Perfil con internet una vez para cargar tu foto. Si luego abres Casa en Juego sin conexión y aún tienes la sesión iniciada, tu foto guardada puede aparecer en la pantalla que te pide volver a conectarte.
 - **Apariencia.** Usa el interruptor **Modo oscuro** para cambiar entre los temas.
 - **Avisos en el celular.** Durante un ciclo activo, activa **Avisos de revisión** y permite las notificaciones cuando te lo pida el teléfono.
 - **Avisos generales.** Activa esta opción en **Perfil** para recibir anuncios de Casa en Juego en el celular. Puedes desactivarla desde el mismo lugar.

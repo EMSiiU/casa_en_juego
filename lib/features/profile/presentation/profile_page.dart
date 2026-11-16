@@ -120,9 +120,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                     data: (data) => _buildProfile(
                       data,
                       authAction.isLoading,
-                      sessionUser?.id == data.user.id
-                          ? sessionUser?.avatarUrl
-                          : null,
+                      sessionUser?.id == data.user.id ? sessionUser : null,
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -316,10 +314,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   Widget _buildProfile(
     ProfileState data,
     bool isSigningOut,
-    String? avatarUrl,
+    AppUser? sessionUser,
   ) {
     final user = data.user;
-    final hasPhoto = ref.watch(accountPhotoProvider(user.id)).value != null;
+    final canEditPhoto = sessionUser?.canEditPhoto ?? false;
+    final hasPhoto =
+        canEditPhoto && ref.watch(accountPhotoProvider(user.id)).value != null;
     final canEdit = !data.isSaving && !isSigningOut;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -328,31 +328,33 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           child: AccountAvatar(
             name: user.name,
             userId: user.id,
-            avatarUrl: avatarUrl,
+            avatarUrl: sessionUser?.avatarUrl,
+            canEditPhoto: canEditPhoto,
             radius: 42,
           ),
         ),
-        Center(
-          child: Wrap(
-            alignment: WrapAlignment.center,
-            children: [
-              TextButton.icon(
-                onPressed: canEdit
-                    ? ref.read(profileProvider.notifier).changePhoto
-                    : null,
-                icon: const Icon(Icons.add_a_photo_outlined, size: 18),
-                label: Text(hasPhoto ? 'Cambiar foto' : 'Agregar foto'),
-              ),
-              if (hasPhoto)
-                TextButton(
+        if (canEditPhoto)
+          Center(
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              children: [
+                TextButton.icon(
                   onPressed: canEdit
-                      ? ref.read(profileProvider.notifier).removePhoto
+                      ? ref.read(profileProvider.notifier).changePhoto
                       : null,
-                  child: const Text('Quitar foto'),
+                  icon: const Icon(Icons.add_a_photo_outlined, size: 18),
+                  label: Text(hasPhoto ? 'Cambiar foto' : 'Agregar foto'),
                 ),
-            ],
+                if (hasPhoto)
+                  TextButton(
+                    onPressed: canEdit
+                        ? ref.read(profileProvider.notifier).removePhoto
+                        : null,
+                    child: const Text('Quitar foto'),
+                  ),
+              ],
+            ),
           ),
-        ),
         const SizedBox(height: 8),
         Text(
           user.name,

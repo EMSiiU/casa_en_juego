@@ -49,6 +49,7 @@ class AccountMenu extends ConsumerWidget {
               name: name,
               userId: user?.id,
               avatarUrl: user?.avatarUrl,
+              canEditPhoto: user?.canEditPhoto ?? false,
             ),
     );
   }

@@ -103,6 +103,9 @@ class ProfileController extends AsyncNotifier<ProfileState> {
   }, onSaved: (_) => ref.invalidate(currentUserProvider));
 
   Future<void> _writePhoto({required bool remove}) => _save((_, user) async {
+    if (ref.read(currentUserProvider).asData?.value?.canEditPhoto != true) {
+      return null;
+    }
     final photos = ref.read(accountPhotoRepositoryProvider);
     try {
       if (remove) {

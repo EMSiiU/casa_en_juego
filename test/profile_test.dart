@@ -12,6 +12,7 @@ import 'package:casa_en_juego/features/auth/models/auth_failure.dart';
 import 'package:casa_en_juego/features/auth/presentation/widgets/account_avatar.dart';
 import 'package:casa_en_juego/features/auth/providers/account_photo_providers.dart';
 import 'package:casa_en_juego/features/auth/providers/auth_providers.dart';
+import 'package:casa_en_juego/features/auth/repositories/account_photo_cache.dart';
 import 'package:casa_en_juego/features/auth/repositories/account_photo_repository.dart';
 import 'package:casa_en_juego/features/profile/models/profile_failure.dart';
 import 'package:casa_en_juego/features/profile/models/profile_photo.dart';
@@ -39,6 +40,7 @@ Future<ProviderContainer> startProfile(
   FakeAuthRepository? auth,
   SharedPreferencesWithCache? appearance,
   AccountPhotoRepository? photos,
+  AccountPhotoCache? photoCache,
   Future<ProfilePhoto?> Function()? pickPhoto,
   FakeAdminRepository? admin,
 }) async {
@@ -51,6 +53,8 @@ Future<ProviderContainer> startProfile(
         themePreferencesProvider.overrideWithValue(appearance),
         profileRepositoryProvider.overrideWithValue(repository),
         accountPhotoRepositoryProvider.overrideWithValue(photos ?? _Photos()),
+        if (photoCache != null)
+          accountPhotoCacheProvider.overrideWithValue(photoCache),
         if (pickPhoto != null)
           profilePhotoPickerProvider.overrideWithValue(pickPhoto),
         tasksRepositoryProvider.overrideWithValue(FakeTasksRepository()),
@@ -85,6 +89,19 @@ class _Photos implements AccountPhotoRepository {
 
   @override
   Future<void> remove(String userId) async => saved.remove(userId);
+}
+
+class _CachedPhoto extends Fake implements AccountPhotoCache {
+  _CachedPhoto(this.userId, this.bytes);
+  final String userId;
+  final Uint8List bytes;
+
+  @override
+  Future<Uint8List?> read(
+    String id, {
+    String? providerUrl,
+    Duration? maxAge,
+  }) async => id == userId ? bytes : null;
 }
 
 final notificationSwitch = find.widgetWithText(
@@ -337,10 +354,13 @@ void main() {
           notificationsEnabled: true,
           avatarUrl: url,
         );
+      final photos = _Photos();
       final container = await startProfile(
         tester,
         FakeProfileRepository(),
         auth: auth,
+        photos: photos,
+        pickPhoto: () async => throw StateError('OAuth cannot open picker'),
       );
 
       void expectAvatar() {
@@ -353,12 +373,53 @@ void main() {
 
       // Widget tests do not fetch real network images. The fallback stays visible.
       expectAvatar();
+      expect(find.text('Agregar foto'), findsNothing);
+      expect(find.text('Quitar foto'), findsNothing);
+      await container.read(profileProvider.notifier).changePhoto();
+      await container.read(profileProvider.notifier).removePhoto();
+      await tester.pumpAndSettle();
+      expect(photos.saved, isEmpty);
       container.read(appRouterProvider).go('/tasks');
       await tester.pumpAndSettle();
       expectAvatar();
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('An offline session shows only its locally saved avatar', (
+    tester,
+  ) async {
+    final auth = FakeAuthRepository()..user = testUser;
+    final bytes = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aT6sAAAAASUVORK5CYII=',
+    );
+    final container = await startProfile(
+      tester,
+      FakeProfileRepository(),
+      auth: auth,
+      photoCache: _CachedPhoto(testUser.id, bytes),
+    );
+    auth.events.addError(
+      OfflineProfileFailure(
+        userId: testUser.id,
+        name: testUser.name,
+        canEditPhoto: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      container.read(appRouterProvider).routeInformationProvider.value.uri.path,
+      '/session',
+    );
+    expect(find.textContaining('Sin conexión'), findsOneWidget);
+    final image = tester.widget<Image>(find.byType(Image));
+    expect(image.image, isA<ResizeImage>());
+    expect(
+      ((image.image as ResizeImage).imageProvider as MemoryImage).bytes,
+      same(bytes),
+    );
+    expect(find.text('Editar nombre'), findsNothing);
+  });
 
   testWidgets('Profile switches the whole app and restores the saved theme', (
     tester,

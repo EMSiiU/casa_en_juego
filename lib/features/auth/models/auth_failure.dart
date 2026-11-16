@@ -31,3 +31,17 @@ class AuthFailure implements Exception {
     return 'No pudimos conectar. Revisa tu conexión e inténtalo de nuevo.';
   }
 }
+
+class OfflineProfileFailure extends AuthFailure {
+  const OfflineProfileFailure({
+    required this.userId,
+    required this.name,
+    required this.canEditPhoto,
+    this.avatarUrl,
+  }) : super('Sin conexión. Vuelve a conectarte para usar Casa en Juego.');
+
+  final String userId;
+  final String name;
+  final bool canEditPhoto;
+  final String? avatarUrl;
+}

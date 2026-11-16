@@ -25,7 +25,8 @@ async function main() {
         id uuid primary key,
         email text,
         email_confirmed_at timestamptz,
-        raw_user_meta_data jsonb
+        raw_user_meta_data jsonb,
+        raw_app_meta_data jsonb
       );
       create function auth.uid() returns uuid language sql stable as
         'select nullif(current_setting(''request.jwt.claim.sub'', true), '''')::uuid';
@@ -45,12 +46,12 @@ async function main() {
       grant usage on schema storage to authenticated, anon;
       grant select, insert, update, delete on storage.objects to authenticated, anon;
       insert into auth.users values
-        ('${admin}', 'carlos@familia.es', now(), null),
-        ('${member}', 'ana@familia.es', now(), null),
-        ('${personal}', 'elena@example.com', now(), '{"name":"Elena","role":"admin"}'),
-        ('${pending}', 'pat@example.com', null, null),
-        ('${secondCreator}', 'toni@example.com', now(), null),
-        ('${newCreator}', 'sam@example.com', now(), null);
+        ('${admin}', 'carlos@familia.es', now(), null, '{"provider":"email"}'),
+        ('${member}', 'ana@familia.es', now(), '{"provider":"email"}', '{"provider":"google"}'),
+        ('${personal}', 'elena@example.com', now(), '{"name":"Elena","role":"admin"}', '{"provider":"email","providers":["email","google"]}'),
+        ('${pending}', 'pat@example.com', null, null, '{"provider":"email"}'),
+        ('${secondCreator}', 'toni@example.com', now(), null, '{"provider":"github"}'),
+        ('${newCreator}', 'sam@example.com', now(), null, null);
     `);
     await db.exec(load("phase_2.sql"));
     for (const name of ["points_snapshot", "daily_task_limits", "push_notifications", "inactivity_reminders"]) {
@@ -436,6 +437,28 @@ async function main() {
       /CYCLE_INVITE_INVALID/,
     );
     console.log("PASS: active invitation, one membership, member role and closed-cycle history");
+
+    await db.exec("reset role");
+    // Una foto OAuth antigua sigue almacenada y queda fuera del acceso del cliente.
+    await db.exec(`insert into storage.objects values ${avatarRow(member)}`);
+    await db.exec(load("migrations/20261116000100_restrict_account_avatar_edits.sql"));
+    await asUser(personal);
+    await db.exec(`insert into storage.objects values ${avatarRow(personal)} on conflict (bucket_id, name) do update set name = excluded.name`);
+    await db.exec(`insert into storage.objects values ${avatarRow(personal)} on conflict (bucket_id, name) do update set name = excluded.name`);
+    assert.deepEqual(await rows("delete from storage.objects returning name"), [
+      { name: `${personal}/avatar` },
+    ]);
+    for (const id of [member, secondCreator, pending, newCreator]) {
+      await asUser(id);
+      assert.deepEqual(await rows("select name from storage.objects"), []);
+      assert.deepEqual(await rows("update storage.objects set name = name returning name"), []);
+      assert.deepEqual(await rows("delete from storage.objects returning name"), []);
+      await assert.rejects(
+        () => db.exec(`insert into storage.objects values ${avatarRow(id)}`),
+        /row-level security/,
+      );
+    }
+    console.log("PASS: confirmed email origin may write avatars, including linked OAuth; other origins cannot");
   } finally {
     await db.close();
   }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/auth_failure.dart';
 import '../providers/auth_providers.dart';
+import 'widgets/account_avatar.dart';
 
 class SessionPage extends ConsumerWidget {
   const SessionPage({super.key});
@@ -11,6 +12,8 @@ class SessionPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
     final action = ref.watch(authControllerProvider);
+    final error = user.error;
+    final offline = error is OfflineProfileFailure ? error : null;
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -20,6 +23,17 @@ class SessionPage extends ConsumerWidget {
                 ? Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      if (offline != null) ...[
+                        AccountAvatar(
+                          name: offline.name,
+                          userId: offline.userId,
+                          avatarUrl: offline.avatarUrl,
+                          canEditPhoto: offline.canEditPhoto,
+                          localOnly: true,
+                          radius: 42,
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       Text(
                         AuthFailure.messageFor(user.error!),
                         textAlign: TextAlign.center,
