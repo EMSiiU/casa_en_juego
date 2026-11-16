@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_navigation_bar.dart';
+import '../../../core/theme/app_page_bar.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_mode_provider.dart';
 import '../../auth/presentation/widgets/account_avatar.dart';
@@ -61,20 +62,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final isHouseholdMember = sessionUser?.isHouseholdMember ?? false;
     final isDark = ref.watch(themeModeProvider) == ThemeMode.dark;
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 80,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'CASA EN JUEGO',
-              style: TextStyle(color: context.appColors.primary, fontSize: 10),
-            ),
-            SizedBox(height: 4),
-            Text('Tu espacio', style: TextStyle(fontWeight: FontWeight.bold)),
-          ],
-        ),
-      ),
+      appBar: const AppPageBar(title: 'Tu perfil'),
       body: SafeArea(
         top: false,
         child: Center(
@@ -164,15 +152,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                         style: TextStyle(color: context.appColors.error),
                       ),
                     ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Casa en Juego · Cada pequeño esfuerzo cuenta.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: context.appColors.outline,
-                      fontSize: 11,
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -519,7 +498,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                         size: 20,
                       ),
                       SizedBox(width: 10),
-                      Expanded(child: Text('Así sumamos en casa')),
+                      Expanded(child: Text('¿Cómo participar?')),
                     ],
                   ),
                   SizedBox(height: 14),
@@ -533,7 +512,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   ),
                   SizedBox(height: 12),
                   Text(
-                    'No puedes aprobar tus propias tareas. Cada nuevo ciclo empieza una nueva clasificación.',
+                    'No puedes aprobar tus propias tareas, pero si la de los demás. Cada nuevo ciclo empieza una nueva clasificación.',
                     style: TextStyle(
                       color: context.appColors.onSurfaceVariant,
                       fontSize: 12,

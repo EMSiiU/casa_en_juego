@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/theme/app_page_bar.dart';
 import '../models/admin_failure.dart';
 import '../providers/admin_providers.dart';
 import 'widgets/admin_scaffold.dart';
@@ -83,8 +84,8 @@ class CycleHistoryPage extends ConsumerWidget {
                 ),
               );
     return Scaffold(
-      appBar: AppBar(
-        title: Text(id == null ? 'Historial de ciclos' : 'Resultado del ciclo'),
+      appBar: AppPageBar(
+        title: id == null ? 'Historial de ciclos' : 'Resultado del ciclo',
         leading: IconButton(
           tooltip: 'Volver',
           onPressed: () => context.canPop()
@@ -94,6 +95,7 @@ class CycleHistoryPage extends ConsumerWidget {
         ),
       ),
       body: SafeArea(
+        top: false,
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 600),

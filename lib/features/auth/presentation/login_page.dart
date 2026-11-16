@@ -93,14 +93,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                 height: 1.12,
                               ),
                         ),
-                        const SizedBox(height: 14),
-                        Text(
-                          'Reparte el esfuerzo, registra tus tareas y sube en el ranking familiar.',
-                          style: TextStyle(
-                            color: context.appColors.onSurfaceVariant,
-                            height: 1.5,
-                          ),
-                        ),
                         const SizedBox(height: 28),
                         const Text('Correo electrónico'),
                         const SizedBox(height: 8),
@@ -143,7 +135,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           textInputAction: TextInputAction.done,
                           onFieldSubmitted: (_) => _submit(),
                           decoration: InputDecoration(
-                            helperText: 'Toca el ojo para mostrar u ocultar.',
                             suffixIcon: IconButton(
                               tooltip: showPassword
                                   ? 'Ocultar contraseña'

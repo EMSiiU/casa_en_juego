@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_navigation_bar.dart';
+import '../../../core/theme/app_page_bar.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../models/activity_failure.dart';
@@ -56,28 +57,15 @@ class _ActivityPageState extends ConsumerState<ActivityPage> {
     final filter = ref.watch(activityFilterProvider);
     final activity = ref.watch(activityProvider);
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 80,
+      appBar: AppPageBar(
+        subtitle: '${user?.name.toUpperCase() ?? ''} · HISTORIAL',
+        title: 'Mi actividad',
         leading: IconButton(
           tooltip: widget.fromProfile ? 'Volver al perfil' : 'Volver a tareas',
           onPressed: () => context.canPop()
               ? context.pop()
               : context.go(widget.fromProfile ? '/profile' : '/tasks'),
           icon: const Icon(Icons.arrow_back),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${user?.name.toUpperCase() ?? ''} · HISTORIAL',
-              style: TextStyle(color: context.appColors.primary, fontSize: 10),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Mi actividad',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ],
         ),
       ),
       body: SafeArea(

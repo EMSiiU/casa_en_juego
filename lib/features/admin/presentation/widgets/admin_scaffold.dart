@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_navigation_bar.dart';
+import '../../../../core/theme/app_page_bar.dart';
 import '../../../../core/theme/app_theme.dart';
 
 class AdminScaffold extends StatelessWidget {
@@ -22,25 +23,15 @@ class AdminScaffold extends StatelessWidget {
   Widget build(BuildContext context) => PopScope(
     canPop: !isBusy,
     child: Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 80,
+      appBar: AppPageBar(
+        title: title,
+        subtitle: subtitle,
         leading: IconButton(
           tooltip: 'Volver',
           onPressed: isBusy
               ? null
               : () => context.canPop() ? context.pop() : context.go('/profile'),
           icon: const Icon(Icons.arrow_back),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              subtitle,
-              style: TextStyle(color: context.appColors.primary, fontSize: 10),
-            ),
-            const SizedBox(height: 4),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-          ],
         ),
       ),
       body: SafeArea(

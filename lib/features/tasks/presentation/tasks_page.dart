@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_navigation_bar.dart';
+import '../../../core/theme/app_page_bar.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/presentation/widgets/account_menu.dart';
 import '../../auth/providers/auth_providers.dart';
@@ -74,9 +75,7 @@ class _TasksPageState extends ConsumerState<TasksPage> {
           SnackBar(
             duration: const Duration(seconds: 3),
             persist: false,
-            content: const Text(
-              'Enviada a revisión. Tus puntos se sumarán cuando sea aprobada.',
-            ),
+            content: const Text('Enviada a revisión.'),
             action: SnackBarAction(
               label: 'Ver actividad',
               onPressed: () => _openActivity(submitted: true),
@@ -126,7 +125,13 @@ class _TasksPageState extends ConsumerState<TasksPage> {
     final name = ref.watch(accountNameProvider) ?? '';
 
     return Scaffold(
+      appBar: AppPageBar(
+        subtitle: 'CASA EN JUEGO',
+        title: '¡Hola, $name!',
+        trailing: const AccountMenu(),
+      ),
       body: SafeArea(
+        top: false,
         child: RefreshIndicator(
           onRefresh: _refresh,
           child: Center(
@@ -134,35 +139,8 @@ class _TasksPageState extends ConsumerState<TasksPage> {
               constraints: const BoxConstraints(maxWidth: 600),
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'CASA EN JUEGO',
-                              style: TextStyle(
-                                color: context.appColors.primary,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '¡Hola, $name!',
-                              style: Theme.of(context).textTheme.headlineSmall
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const AccountMenu(),
-                    ],
-                  ),
-                  const SizedBox(height: 28),
                   dashboard.when(
                     skipLoadingOnRefresh: false,
                     loading: () => const SizedBox(
@@ -207,29 +185,9 @@ class _TasksPageState extends ConsumerState<TasksPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                data.season!.name,
-                style: TextStyle(color: context.appColors.onSurfaceVariant),
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: context.statusColors.approvedContainer,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                '● Ciclo activo',
-                style: TextStyle(
-                  color: context.statusColors.approved,
-                  fontSize: 11,
-                ),
-              ),
-            ),
-          ],
+        Text(
+          data.season!.name,
+          style: TextStyle(color: context.appColors.onSurfaceVariant),
         ),
         const SizedBox(height: 18),
         Container(
@@ -388,15 +346,6 @@ class _TasksPageState extends ConsumerState<TasksPage> {
                 ),
               ),
             ),
-        const SizedBox(height: 10),
-        Text(
-          'Registra lo que termines. Otro miembro lo revisará.',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: context.appColors.onSurfaceVariant,
-            fontSize: 12,
-          ),
-        ),
       ],
     );
   }

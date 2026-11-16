@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/router/app_navigation_bar.dart';
+import '../../../core/theme/app_page_bar.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/presentation/widgets/account_menu.dart';
 import '../../auth/providers/auth_providers.dart';
@@ -50,28 +51,9 @@ class _LeaderboardPageState extends ConsumerState<LeaderboardPage> {
     final user = ref.watch(currentUserProvider).asData?.value;
     final data = ref.watch(leaderboardProvider);
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 84,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'RANKING FAMILIAR',
-              style: TextStyle(fontSize: 10, color: context.appColors.primary),
-            ),
-            SizedBox(height: 4),
-            Text(
-              'El esfuerzo se nota',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 20),
-            child: const AccountMenu(),
-          ),
-        ],
+      appBar: const AppPageBar(
+        title: 'Ranking familiar',
+        trailing: AccountMenu(),
       ),
       body: SafeArea(
         top: false,
@@ -269,16 +251,6 @@ class _LeaderboardPageState extends ConsumerState<LeaderboardPage> {
                 ),
               ),
         ],
-        const SizedBox(height: 12),
-        Text(
-          'Solo suman las tareas aprobadas del ciclo activo. Los empates comparten posición.',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: context.appColors.onSurfaceVariant,
-            fontSize: 11,
-            height: 1.5,
-          ),
-        ),
       ],
     );
   }

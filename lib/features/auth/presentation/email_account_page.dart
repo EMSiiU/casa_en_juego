@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/theme/app_page_bar.dart';
 import '../providers/email_account_provider.dart';
 
 class EmailAccountPage extends ConsumerStatefulWidget {
@@ -49,8 +50,8 @@ class _EmailAccountPageState extends ConsumerState<EmailAccountPage> {
         ? 'Confirma tu correo'
         : 'Crear cuenta';
     return Scaffold(
-      appBar: AppBar(
-        title: Text(heading),
+      appBar: AppPageBar(
+        title: heading,
         leading: IconButton(
           tooltip: 'Volver al inicio de sesión',
           icon: const Icon(Icons.arrow_back),
@@ -58,6 +59,7 @@ class _EmailAccountPageState extends ConsumerState<EmailAccountPage> {
         ),
       ),
       body: SafeArea(
+        top: false,
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),

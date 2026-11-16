@@ -800,6 +800,27 @@ Tareas o Ranking y vuelve a abrir la app. La prueba en
 [`test/profile_test.dart`](../test/profile_test.dart) comprueba el cambio
 global, la familia tipográfica y la restauración del valor guardado.
 
+### Barra superior de las pantallas
+
+[`AppPageBar`](../lib/core/theme/app_page_bar.dart) reúne los encabezados
+de Tareas, Revisiones, Ranking, Perfil y las pantallas secundarias que
+usan barra superior. Usa `Scaffold.appBar` para mantener el encabezado
+visible durante el desplazamiento. La barra mide 80 píxeles lógicos y
+centra su contenido en una columna de hasta 600, con 20 de margen lateral.
+El título usa `titleLarge` en negrita y el subtítulo opcional usa
+`labelSmall` de 10 píxeles lógicos. Los dos heredan DM Sans del tema.
+
+Cada pantalla aporta su título, subtítulo y, si aplica, el botón de regreso
+o el menú de cuenta. Tareas sigue leyendo el saludo de `accountNameProvider`
+y el avatar de `AccountMenu`. Ranking familiar usa un solo título visible.
+Al modificar la altura, la tipografía o los márgenes globales del
+encabezado, editar `AppPageBar`.
+
+Los márgenes inferiores de Inicio de sesión, Tareas, Ranking y Perfil
+se controlan desde el `padding` de sus vistas desplazables. En Revisiones
+el espaciado inferior forma parte de cada tarjeta. El nombre del ciclo en
+Tareas se muestra en un `Text` dentro de la columna del panel.
+
 ## 8. Rúbrica del proyecto final
 
 | Requisito | Estado en este repositorio |
@@ -925,6 +946,7 @@ también cuando el cliente llama directamente a la API.
 | `lib/core/router/app_router.dart` | El proveedor del router declara las rutas y sus redirecciones por sesión y rol. `refresh()` solicita reevaluar las redirecciones cuando cambia la sesión. |
 | `lib/core/router/app_navigation_bar.dart` | `AppNavigationBar` monta la navegación principal y actualiza el indicador de revisiones. |
 | `lib/core/theme/app_theme.dart` | `AppTheme._build()` prepara colores, tipografía y componentes compartidos. `AppStatusColors.copyWith()` y `lerp()` integran los colores semánticos en las transiciones de tema. |
+| `lib/core/theme/app_page_bar.dart` | `AppPageBar.build()` fija las dimensiones, alineación y tipografía de la barra y coloca sus controles laterales. |
 | `lib/core/theme/theme_mode_provider.dart` | `build()` restaura la preferencia y `setDarkMode()` guarda el modo elegido. |
 
 ### 11.2 Acceso y cuenta
@@ -1041,7 +1063,7 @@ Rutas relativas a `lib/features/`.
 | `leaderboard/repositories/leaderboard_repository.dart` | `loadLeaderboard()` obtiene el ciclo, sus integrantes y los registros aprobados. |
 | `leaderboard/providers/leaderboard_providers.dart` | Expone la consulta de ranking y la vincula con la sesión actual. |
 | `leaderboard/presentation/leaderboard_page.dart` | Pantalla de puestos, puntos y contribución. |
-| `leaderboard/presentation/widgets/leaderboard_podium.dart` | Presenta los primeros puestos. |
+| `leaderboard/presentation/widgets/leaderboard_podium.dart` | Presenta los primeros puestos con el nombre y las iniciales que se calculan localmente. |
 | `leaderboard/presentation/widgets/contribution_chart.dart` | Dibuja barras de contribución mediante `fl_chart`. |
 
 ### 11.8 Avisos móviles

@@ -16,6 +16,7 @@ import '../../features/admin/presentation/admin_page.dart';
 import '../../features/admin/presentation/cycle_history_page.dart';
 import '../../features/admin/presentation/task_catalog_page.dart';
 import '../../features/admin/presentation/task_editor_page.dart';
+import '../theme/app_page_bar.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final refresh = _RouterRefresh();
@@ -159,7 +160,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
-      appBar: AppBar(title: const Text('Casa en Juego')),
+      appBar: const AppPageBar(title: 'Casa en Juego'),
       body: Center(
         child: FilledButton(
           onPressed: () => context.go('/'),

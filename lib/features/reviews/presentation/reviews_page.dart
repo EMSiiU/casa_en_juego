@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/router/app_navigation_bar.dart';
+import '../../../core/theme/app_page_bar.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/presentation/widgets/account_menu.dart';
 import '../models/review_decision.dart';
@@ -29,28 +30,10 @@ class ReviewsPage extends ConsumerWidget {
     final action = ref.watch(reviewActionProvider);
     final count = inbox.asData?.value.length;
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 80,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              count == null ? 'SOLICITUDES DE OTROS' : '$count POR REVISAR',
-              style: TextStyle(color: context.appColors.primary, fontSize: 10),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Revisiones',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 20),
-            child: const AccountMenu(),
-          ),
-        ],
+      appBar: AppPageBar(
+        subtitle: count == null ? 'SOLICITUDES DE OTROS' : '$count POR REVISAR',
+        title: 'Revisiones',
+        trailing: const AccountMenu(),
       ),
       body: SafeArea(
         top: false,
@@ -85,7 +68,7 @@ class ReviewsPage extends ConsumerWidget {
                                 SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
-                                    'Aquí revisas a tus hermanos. Tus propias tareas solo las puede validar otra persona.',
+                                    'Aquí revisas a otros miembros. Tus propias tareas solo las puede validar otra persona.',
                                     style: TextStyle(
                                       color: context.appColors.onSurfaceVariant,
                                       fontSize: 12,
@@ -237,14 +220,14 @@ class ReviewsPage extends ConsumerWidget {
                             SliverToBoxAdapter(
                               child: Padding(
                                 padding: EdgeInsets.fromLTRB(20, 0, 20, 24),
-                                child: Text(
-                                  'Fechas en UTC−5. El solicitante verá el resultado en Mi actividad.',
-                                  style: TextStyle(
-                                    color: context.appColors.onSurfaceVariant,
-                                    fontSize: 11,
-                                    height: 1.5,
-                                  ),
-                                ),
+                                // child: Text(
+                                //   'Fechas en UTC−5. El solicitante verá el resultado en Mi actividad.',
+                                //   style: TextStyle(
+                                //     color: context.appColors.onSurfaceVariant,
+                                //     fontSize: 11,
+                                //     height: 1.5,
+                                //   ),
+                                // ),
                               ),
                             ),
                           ],
