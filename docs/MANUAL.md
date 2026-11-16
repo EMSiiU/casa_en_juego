@@ -18,13 +18,17 @@ siguen pendientes.
 
 ```mermaid
 flowchart LR
-    UI["Pantallas y formularios Flutter"] --> State["Proveedores y controladores Riverpod"]
-    State --> Repo["Interfaces de repositorio"]
-    Repo --> SB["Supabase Auth y API de datos"]
-    SB --> DB["PostgreSQL con RLS, índices y triggers"]
+    Router["go_router"] --> UI["Pantallas y formularios Flutter"]
+    UI --> State["Proveedores y controladores Riverpod"]
+    State --> Repo["Repositorios de cada módulo"]
+    State -->|"Sesión y membresía"| Router
+    Repo --> Auth["Supabase Auth · correo y OAuth"]
+    Repo --> Storage["Supabase Storage · avatares privados"]
+    Repo --> DB["PostgreSQL · tablas, RPC, RLS y triggers"]
     DB --> Queue["Cola de avisos"]
-    Queue --> Edge["Edge Function de Supabase"]
+    Queue -->|"Cron · reclamar y procesar"| Edge["Edge Function de Supabase"]
     Edge --> FCM["Firebase Cloud Messaging"]
+    Console["Firebase Console · prueba manual"] --> FCM
     FCM --> Host["NotificationHost sobre la app"]
     Host --> State
     Hosting["Firebase Hosting"] --> Web["Compilación Flutter web"]
@@ -35,7 +39,8 @@ flowchart LR
 | Flutter y Dart | Pantallas para Android, iOS y web. Los módulos se organizan por funcionalidad. | [lib/main.dart](../lib/main.dart), [pubspec.yaml](../pubspec.yaml) |
 | Riverpod | Estado de formularios, sesión, consultas, acciones, reintentos e invalidación de datos. | Carpetas `providers/` de cada módulo y proveedores locales de los formularios |
 | go_router | Navegación, restauración de sesión y protección de páginas administrativas. | [app_router.dart](../lib/core/router/app_router.dart) |
-| Supabase Auth | Sesión con correo y contraseña. El perfil familiar y el rol se leen de PostgreSQL. | [auth_repository.dart](../lib/features/auth/repositories/auth_repository.dart) |
+| Supabase Auth | Sesión con correo y contraseña, Google y GitHub. El nombre editable y la membresía se leen de PostgreSQL. | [auth_repository.dart](../lib/features/auth/repositories/auth_repository.dart) |
+| Supabase Storage | Guarda la foto de perfil opcional en un bucket privado. | [account_photo_repository.dart](../lib/features/auth/repositories/account_photo_repository.dart) |
 | Supabase PostgreSQL | Datos de negocio y autorización. RLS significa seguridad por fila. Se complementa con permisos por columna, restricciones e índices. | [phase_2.sql](../supabase/phase_2.sql), [migraciones](../supabase/migrations/) |
 | Firebase | FCM transporta avisos en móvil y Hosting aloja la compilación web. | [push_gateway.dart](../lib/features/notifications/repositories/push_gateway.dart), [firebase.json](../firebase.json) |
 | fl_chart | Barras horizontales de contribución en el ranking. | [contribution_chart.dart](../lib/features/leaderboard/presentation/widgets/contribution_chart.dart) |
@@ -69,7 +74,7 @@ las interfaces de repositorio por implementaciones de prueba.
    siguen disponibles después del cierre.
 4. `ProfileController.setNotifications()` actualiza la preferencia guardada en
    PostgreSQL y sincroniza el estado de avisos. Perfil muestra nombre, correo,
-   rol, avatar e información del grupo cuando corresponde.
+   rol, avatar e información del ciclo activo cuando corresponde.
 5. `AuthController.signOut()` solicita a `NotificationSession.disconnect()`
    desvincular el dispositivo y luego cierra la sesión local de Supabase. Si la
    desvinculación falla, la app muestra un error y permite reintentar.
@@ -357,6 +362,10 @@ incluidas las que nadie registró. **Mi actividad** conserva las solicitudes
 propias de todos sus ciclos.
 
 Cada ciclo nuevo tiene su propio ámbito de datos y su propio catálogo.
+Empieza con los cinco registros de la plantilla y cero puntos. El creador
+es el único miembro al inicio y queda como administrador de ese ciclo.
+Si quiere volver a jugar con las mismas personas, estas ingresan con el
+código del ciclo nuevo.
 `cycle_group_id` sigue siendo el nombre de la clave técnica en PostgreSQL.
 Una cuenta tiene un único valor activo de esa clave en su perfil. Al cerrar,
 se vacía esa clave, se desactiva `is_household_member` y se retira el rol
@@ -581,7 +590,7 @@ liberación de participantes y el acceso al historial con y sin participación.
    En Supabase, las RPC `register_push_device` y `unregister_push_device`
    vinculan o desvinculan el FID de la cuenta actual.
 3. La inserción o resolución de una tarea encola avisos para miembros de su
-   grupo. La Edge Function
+   ciclo activo. La Edge Function
    `send-task-notifications` reclama trabajos, comprueba nuevamente el estado
    y el destinatario, llama a FCM y registra el resultado. Los recordatorios
    usan la misma cola y se programan a las 18:00 y 20:00 de Ciudad de México.
@@ -599,8 +608,11 @@ y dejan visible la pantalla actual.
 Con la app en segundo plano o cerrada, Android muestra las notificaciones
 generales en la bandeja. Al tocarlas, Android abre la app en su flujo
 habitual. El listener de aperturas de Flutter sigue procesando los avisos
-privados para llevar al usuario a la ruta correspondiente. Los Topics y la
-prueba de entrega real en Android quedan pendientes. iOS requiere APNs.
+privados para llevar al usuario a la ruta correspondiente. El responsable
+del proyecto reportó la prueba del aviso generado por una actividad
+enviada a revisión en Android, en los tres estados. Siguen pendientes
+Topics y la prueba de un envío directo desde Firebase Console en esos
+estados. iOS requiere APNs.
 
 Enlaces de estudio: [NotificationHost](../lib/features/notifications/presentation/notification_host.dart),
 [sesión de avisos](../lib/features/notifications/services/notification_session.dart),
@@ -725,15 +737,15 @@ global, la familia tipográfica y la restauración del valor guardado.
 | Requisito | Estado en este repositorio |
 |---|---|
 | Problemática, objetivo y alcance | Parcial. Hay un [planteamiento](../planteamiento.md). Falta incluir evidencia del problema y el alcance acordado con el maestro. |
-| Firebase Database y sincronización | Parcial. PostgreSQL guarda los datos y Flutter refresca las consultas al cambiar el estado, navegar o recibir avisos. Pendiente una suscripción a cambios de datos y la decisión del maestro sobre Supabase, Realtime Database o Firestore. |
-| Firebase Storage y caché local de imágenes | Pendiente. Perfil usa iniciales y el catálogo usa iconos locales. Falta subir y guardar imágenes para uso sin conexión. |
+| Base de datos y sincronización | Supabase PostgreSQL aprobado por el maestro para datos y autenticación. Flutter vuelve a consultar después de las operaciones y en puntos de refresco de cada pantalla; los avisos privados también pueden invalidar consultas. La app carece de una suscripción general a Supabase Realtime. |
+| Almacenamiento y caché local de imágenes | La foto de perfil se sube a Supabase Storage privado. Perfil y Tareas la muestran con alternativa de foto OAuth o iniciales. La caché persistente para uso sin conexión sigue pendiente. |
 | FCM desde consola, Topics y tres estados | Parcial. Hay escuchador global, aviso general en primer plano y rutas para los avisos privados. Pendientes Topics y prueba de envío directo en Android en los tres estados. |
-| Auth, alta por correo y dos proveedores | Implementado en código. Incluye registro, verificación, reenvío, recuperación por correo y acceso con Google y GitHub mediante Supabase Auth. Falta configurar y validar el entorno remoto. |
+| Auth, alta por correo y dos proveedores | Implementado. Incluye registro, verificación, reenvío, recuperación por correo y acceso con Google y GitHub mediante Supabase Auth. El responsable del proyecto reportó que funcionaron el correo y ambos proveedores en su entorno. |
 | Perfil y avatar sincronizado | Implementado. Nombre editable y foto opcional que se puede subir, reemplazar o quitar. Perfil y Tareas muestran la foto de la cuenta con retorno a la imagen OAuth o a las iniciales. |
 | Creación y acceso a ciclos | Implementados la creación, el ingreso mediante código y el historial tras el cierre. Cada cuenta tiene una sola membresía activa. Queda pendiente la salida individual durante un ciclo activo. |
 | Estado con Riverpod | Implementado. Las ocho llamadas explícitas a `setState` fueron sustituidas. La búsqueda en `lib/` tampoco encontró usos explícitos de `ValueNotifier`. |
 | Tipografía y tema dinámico | Implementados. DM Sans viene incluida con la app y Perfil permite cambiar y recordar el modo claro u oscuro. |
-| Onboarding | Pendiente. |
+| Bienvenida | Pantalla inicial aplazada. El [manual de usuario](manual%20de%20usuario.md) explica los flujos disponibles. |
 | Responsividad y widget avanzado | Parcial. Hay límites de ancho y pruebas en pantallas pequeñas. La adaptación a escritorio debe validarse. La gráfica de Ranking es candidata al 10% si el maestro la acepta. |
 | Sensor y mapa nativo | Pendiente. Biometría para confirmar el cierre de ciclo es una propuesta. El propósito y la ubicación del mapa dependen del alcance acordado. |
 | Pagos o suscripciones | Pendiente. Stripe PaymentSheet es una opción para mostrar un formulario nativo de pago en modo de pruebas. También falta definir si se evaluará pedido simulado o tres planes. |
@@ -808,3 +820,269 @@ En cada cambio del proyecto, actualizar este archivo en la misma revisión.
 Explicar el flujo o método afectado, dónde vive en el código, qué requisito
 cubre y cómo se verificó. Actualizar los diagramas, extractos y la tabla de
 la rúbrica cuando cambie el comportamiento o su estado.
+
+## 11. Mapa del repositorio
+
+Para seguir una operación, empieza en la pantalla, busca el proveedor que
+observa o ejecuta la acción y sigue la llamada al repositorio. Si el
+repositorio invoca una RPC o escribe en una tabla, consulta las funciones,
+políticas y triggers de la sección 4. La pantalla presenta el estado y
+valida la entrada. PostgreSQL aplica las reglas de acceso y consistencia
+también cuando el cliente llama directamente a la API.
+
+| Ubicación | Contenido |
+|---|---|
+| `lib/` | Aplicación Flutter. `main.dart` monta la app, `core/` reúne lo compartido y `features/` separa los módulos de negocio. |
+| `test/` y `test/support/` | Pruebas de widgets, modelos, consultas y acciones. Los repositorios y servicios falsos permiten probar esos flujos sin cuentas ni conexión al proyecto remoto. |
+| `supabase/` | Esquema, migraciones, configuración, activación de avisos, trabajador de notificaciones y pruebas de base de datos. |
+| `assets/brand/` y `assets/fonts/dm_sans/` | Iconos de Google y GitHub, fuente DM Sans y su licencia. `pubspec.yaml` registra los recursos de Flutter. |
+| `android/` | `settings.gradle.kts`, `build.gradle.kts`, `app/build.gradle.kts`, `gradle.properties` y `gradle/wrapper/gradle-wrapper.properties` configuran Gradle y el SDK. `app/google-services.json` configura el cliente de Firebase. |
+| `android/app/src/` | `main/AndroidManifest.xml` declara permisos, actividad, retorno OAuth e icono de avisos. Los manifiestos de `debug/` y `profile/` habilitan red para esas variantes. `MainActivity.kt` es el punto de entrada de Flutter. `res/drawable*`, `res/values*` y `res/mipmap-*` contienen el arranque, los estilos y los iconos por densidad. |
+| `ios/Flutter/` | `AppFrameworkInfo.plist`, `Debug.xcconfig` y `Release.xcconfig` configuran el framework Flutter en Xcode. |
+| `ios/Runner/` | `AppDelegate.swift` registra plugins, `SceneDelegate.swift` integra el ciclo de vida con Flutter, `Info.plist` declara la configuración de la app y `Runner-Bridging-Header.h` conecta el registrador con Swift. `Base.lproj/` define la pantalla de arranque y la vista principal. `Assets.xcassets/` incluye iconos y recursos de arranque con sus manifiestos. |
+| `ios/Runner.xcodeproj/`, `ios/Runner.xcworkspace/` y `ios/RunnerTests/` | Proyecto, esquema, configuración de Xcode y target de pruebas iOS. `RunnerTests.swift` contiene una prueba de ejemplo vacía. |
+| `web/` | `index.html` arranca Flutter; `manifest.json`, `favicon.png` e `icons/` configuran nombre e iconos en navegador e instalación. |
+| `docs/` | Manual técnico, manual de usuario y guías de [Hosting](firebase_hosting_setup.md), [push](push_notifications_setup.md) y [recordatorios](inactivity_reminders_setup.md). |
+| Raíz | `README.md` es la entrada al repositorio; `planteamiento.md` describe el problema. `pubspec.yaml` declara dependencias y recursos; `pubspec.lock` fija versiones. `analysis_options.yaml` activa las reglas de análisis. |
+| Configuración raíz y editor | `firebase.json` configura Hosting y `.firebaserc` el proyecto asociado. `.gitignore` y los archivos equivalentes de cada plataforma excluyen archivos locales. `.metadata` sirve a Flutter y `devtools_options.yaml` a DevTools. `.vscode/settings.json` delimita Deno a las funciones; `.vscode/extensions.json` recomienda extensiones. |
+
+### 11.1 Arranque y componentes compartidos
+
+| Archivo | Funciones y responsabilidad |
+|---|---|
+| `lib/main.dart` | `main()` inicializa Supabase y, cuando aplica, Firebase móvil. `CasaEnJuegoApp.build()` reúne el router, el tema, la localización y los avisos. |
+| `lib/core/network/supabase_provider.dart` | `supabaseClientProvider` entrega el cliente inicializado a los repositorios. |
+| `lib/core/constants/supabase_config.dart` | `SupabaseConfig` resuelve la URL y la clave publicable, con posibilidad de configurarlas al compilar. |
+| `lib/core/constants/task_log_status.dart` | `TaskLogStatus` centraliza los estados de solicitud que comparten Tareas, Revisiones y Actividad. |
+| `lib/core/router/app_router.dart` | El proveedor del router declara las rutas y sus redirecciones por sesión y rol. `refresh()` solicita reevaluar las redirecciones cuando cambia la sesión. |
+| `lib/core/router/app_navigation_bar.dart` | `AppNavigationBar` monta la navegación principal y actualiza el indicador de revisiones. |
+| `lib/core/theme/app_theme.dart` | `AppTheme._build()` prepara colores, tipografía y componentes compartidos. `AppStatusColors.copyWith()` y `lerp()` integran los colores semánticos en las transiciones de tema. |
+| `lib/core/theme/theme_mode_provider.dart` | `build()` restaura la preferencia y `setDarkMode()` guarda el modo elegido. |
+
+### 11.2 Acceso y cuenta
+
+Rutas relativas a `lib/features/auth/`.
+
+| Archivo | Funciones y responsabilidad |
+|---|---|
+| `models/app_user.dart` | `AppUser` reúne identidad, nombre, rol, membresía y preferencias. `withName()` actualiza la copia usada por la interfaz después de renombrar. |
+| `models/auth_failure.dart` | `messageFor()` traduce errores de acceso y OAuth a mensajes de interfaz. |
+| `models/provider_avatar.dart` | Lee y valida las URL de avatar disponibles en los metadatos de los proveedores OAuth. |
+| `repositories/auth_repository.dart` | `watchUser()` combina sesión, perfil y verificación. `signIn()`, `signUp()`, `resendSignUpCode()`, `confirmEmail()`, `requestPasswordReset()`, `resetPassword()` y `signOut()` implementan operaciones de cuenta. |
+| `repositories/oauth_sign_in.dart` | `oauthSignInProvider` inicia el flujo de Google o GitHub con el retorno adecuado para web o móvil. |
+| `repositories/password_recovery.dart` | `sendCode()` solicita el OTP. `reset()` lo verifica y cambia la contraseña usando la credencial de recuperación. |
+| `repositories/account_photo_repository.dart` | `load()`, `save()` y `remove()` leen, escriben y retiran la foto personal en Storage. |
+| `providers/auth_providers.dart` | `currentUserProvider` entrega el usuario autenticado. `AuthController` coordina el acceso, el nombre local y el cierre de sesión con dispositivos push. |
+| `providers/email_account_provider.dart` | `EmailAccountController.sendCode()` y `verify()` controlan los pasos de alta y recuperación; el controlador mantiene estado, errores y confirmación. |
+| `providers/account_photo_providers.dart` | `accountPhotoRepositoryProvider` crea el repositorio y `accountPhotoProvider` carga la foto de la cuenta. |
+| `presentation/login_page.dart` | `_submit()` valida correo y contraseña; la pantalla enlaza alta, recuperación y acceso social. |
+| `presentation/email_account_page.dart` | Adapta el formulario al alta o la recuperación, presenta el campo de código y expone el reenvío cuando procede. |
+| `presentation/session_page.dart` | Presenta la carga inicial de sesión y permite recuperarse de un error de perfil. |
+| `presentation/widgets/account_avatar.dart` | Muestra la foto personal, la foto OAuth o las iniciales según disponibilidad. |
+| `presentation/widgets/account_menu.dart` | Presenta las acciones de cuenta y ejecuta la salida mediante el controlador. |
+| `presentation/widgets/social_sign_in_buttons.dart` | Muestra los botones e iconos de Google y GitHub y los conecta al acceso OAuth. |
+
+### 11.3 Perfil
+
+Rutas relativas a `lib/features/profile/`.
+
+| Archivo | Funciones y responsabilidad |
+|---|---|
+| `models/profile_state.dart` | Agrupa el perfil leído y el estado de las operaciones de edición. |
+| `models/profile_failure.dart` | `messageFor()` muestra errores de perfil, invitación y ciclo. |
+| `models/profile_photo.dart` | `pick()` abre el selector del sistema y valida tamaño y tipo con los bytes de la imagen. |
+| `repositories/profile_repository.dart` | `loadProfile()`, `rename()` y `setNotifications()` gestionan preferencias y perfil; `joinCycle()` y `createFirstCycle()` llaman las RPC de membresía. |
+| `providers/profile_providers.dart` | `ProfileController` coordina edición de nombre, foto y avisos; `createFirstCycle()` y `joinCycle()` refrescan el perfil y la sesión después de modificar la membresía. |
+| `presentation/profile_page.dart` | `_editName()`, `_joinCycle()` y `_openAdministration()` conectan los formularios y la navegación con los controladores. La vista también muestra foto, tema, avisos e historial. |
+
+### 11.4 Administración y ciclos
+
+Rutas relativas a `lib/features/admin/`.
+
+| Archivo | Funciones y responsabilidad |
+|---|---|
+| `models/admin_action_state.dart` | Estado de operación en curso y error visible. |
+| `models/admin_dashboard.dart` | Datos del panel, registros, resumen y puntuaciones del ciclo. |
+| `models/admin_failure.dart` | `messageFor()` traduce errores de administración. |
+| `models/admin_season.dart` | Representación del ciclo y sus fechas para administración e historial. |
+| `models/task_draft.dart` | Define los iconos editables y los campos del formulario. `toJson()` traduce el borrador a columnas de Supabase. |
+| `repositories/admin_repository.dart` | `loadDashboard()` resume la actividad; `loadInviteCode()` pide el código; `loadClosedCycles()` y `loadClosedCycle()` consultan el archivo; `loadTasks()`, `loadTask()`, `saveTask()` y `closeSeason()` operan sobre el ciclo activo. |
+| `providers/admin_providers.dart` | Entrega los datos de administración e historial, comprueba permisos y coordina `saveTask()`, `closeSeason()` e invalidación de consultas. |
+| `presentation/admin_page.dart` | `_createCycle()` abre el formulario compartido y `_buildInvitation()` muestra el código que puede copiar el administrador. |
+| `presentation/cycle_history_page.dart` | Presenta ciclos cerrados y permite consultar su detalle archivado. |
+| `presentation/task_catalog_page.dart` | Lista el catálogo del ciclo activo y abre el editor de altas o cambios. |
+| `presentation/task_editor_page.dart` | Valida el borrador del catálogo, selecciona un icono y guarda mediante el controlador de administración. |
+| `presentation/widgets/admin_scaffold.dart` | Estructura, avisos y estados de error reutilizados por las vistas administrativas. |
+| `presentation/widgets/close_season_sheet.dart` | Presenta el resumen de cierre y solicita confirmación antes de ejecutar la operación. |
+| `presentation/widgets/closed_cycle_card.dart` | Muestra el resultado archivado y los puntos del ciclo cerrado. |
+| `presentation/widgets/cycle_form_dialog.dart` | Valida el nombre y la fecha prevista desde el calendario. Se utiliza en el primer ciclo y en los siguientes. |
+
+### 11.5 Tareas
+
+Rutas relativas a `lib/features/tasks/`.
+
+| Archivo | Funciones y responsabilidad |
+|---|---|
+| `models/household_task.dart` | Datos del catálogo, puntos, icono y restricciones de la tarea. |
+| `models/season.dart` | Datos del ciclo para el panel de Tareas. |
+| `models/task_log.dart` | Datos de una solicitud registrada, incluido su estado y los puntos históricos. |
+| `models/task_failure.dart` | `messageFor()` traduce fallos de consulta y registro, incluidos los límites diarios. |
+| `models/task_submission_status.dart` | Lleva la información de tareas limitadas; `isBlocked()` informa si puede enviarse otra solicitud. |
+| `models/tasks_dashboard.dart` | `approvedPointsFor()`, `pendingFor()` y `positionFor()` calculan las métricas del ciclo visible. |
+| `repositories/tasks_repository.dart` | `loadDashboard()` obtiene ciclo, catálogo y solicitudes; `submitTask()` crea una solicitud pendiente. |
+| `providers/tasks_providers.dart` | `tasksDashboardProvider` lee los datos. `TaskSubmissionController.submit()` evita envíos repetidos y refresca los datos relacionados. |
+| `presentation/tasks_page.dart` | Vista de tareas disponibles, avance, datos de la cuenta y acceso a Mi actividad. |
+| `presentation/widgets/task_icon.dart` | Traduce el nombre del icono a un símbolo de Flutter; `_SneakerPainter.paint()` dibuja el de tenis. |
+| `presentation/widgets/task_submission_sheet.dart` | Presenta la confirmación de registro y ejecuta la acción del proveedor. |
+
+### 11.6 Revisiones
+
+Rutas relativas a `lib/features/reviews/`.
+
+| Archivo | Funciones y responsabilidad |
+|---|---|
+| `models/review_action_state.dart` | Guarda la solicitud que está siendo resuelta y el error, si existe. |
+| `models/review_decision.dart` | Representa aprobar o rechazar y el estado que se escribe. |
+| `models/review_failure.dart` | `messageFor()` distingue fallos al cargar la bandeja y al resolver. |
+| `models/review_request.dart` | Datos de una solicitud con autor, tarea y puntos ofrecidos. |
+| `repositories/reviews_repository.dart` | `loadInbox()` lista pendientes revisables. `resolve()` aplica una decisión sobre una solicitud todavía pendiente. |
+| `providers/reviews_providers.dart` | Expone bandeja y conteo; `resolve()` coordina el guardado y refresca ranking, actividad y tareas. |
+| `presentation/reviews_page.dart` | Presenta bandeja, estados y refresco mediante `_refresh()`. |
+| `presentation/widgets/review_request_card.dart` | Muestra el detalle de una solicitud y las acciones de aprobar o rechazar. |
+
+### 11.7 Mi actividad y ranking
+
+Rutas relativas a `lib/features/`.
+
+| Archivo | Funciones y responsabilidad |
+|---|---|
+| `activity/models/activity_entry.dart` | Registro personal con tarea, fechas, puntos y estado de revisión. |
+| `activity/models/activity_failure.dart` | `messageFor()` traduce errores al consultar el historial. |
+| `activity/models/activity_filter.dart` | Vincula cada filtro visible con su estado de solicitud, cuando aplica. |
+| `activity/models/activity_page_state.dart` | Conserva las entradas de la página y los datos para cargar más. |
+| `activity/repositories/activity_repository.dart` | `loadPage()` consulta el historial de la cuenta, con filtro, paginación y etiquetas archivadas. |
+| `activity/providers/activity_providers.dart` | `select()` cambia el filtro, `build()` carga la primera página y `loadMore()` agrega resultados. |
+| `activity/presentation/activity_date_formatter.dart` | `format()` presenta fechas en el formato de la interfaz. |
+| `activity/presentation/activity_page.dart` | Renderiza filtros, historial actual y anterior, y ofrece refresco y paginación. |
+| `activity/presentation/widgets/activity_entry_card.dart` | Presenta cada registro y el valor de la tarea según su estado. |
+| `leaderboard/models/leaderboard_data.dart` | Agrupa ciclo, integrantes y puntuaciones para construir el ranking. |
+| `leaderboard/models/leaderboard_failure.dart` | Convierte fallos de ranking en mensajes para la pantalla. |
+| `leaderboard/models/leaderboard_member.dart` | Identidad y nombre de un integrante puntuable. |
+| `leaderboard/models/leaderboard_score.dart` | Datos de puntuación y contribución que se usan en la clasificación. |
+| `leaderboard/repositories/leaderboard_repository.dart` | `loadLeaderboard()` obtiene el ciclo, sus integrantes y los registros aprobados. |
+| `leaderboard/providers/leaderboard_providers.dart` | Expone la consulta de ranking y la vincula con la sesión actual. |
+| `leaderboard/presentation/leaderboard_page.dart` | Pantalla de puestos, puntos y contribución. |
+| `leaderboard/presentation/widgets/leaderboard_podium.dart` | Presenta los primeros puestos. |
+| `leaderboard/presentation/widgets/contribution_chart.dart` | Dibuja barras de contribución mediante `fl_chart`. |
+
+### 11.8 Avisos móviles
+
+Rutas relativas a `lib/features/notifications/`.
+
+| Archivo | Funciones y responsabilidad |
+|---|---|
+| `models/push_notice.dart` | `fromData()` interpreta avisos de la app; `fromForeground()` reconoce también los mensajes generales de Firebase Console en primer plano. |
+| `providers/notification_providers.dart` | Conecta gateway, repositorio y sesión de notificaciones con Riverpod. |
+| `repositories/push_gateway.dart` | Consulta permisos, registra o desregistra el dispositivo y expone avisos recibidos o abiertos por FCM. |
+| `repositories/notification_repository.dart` | `register()` y `unregister()` sincronizan el registro de dispositivo con Supabase. |
+| `services/notification_session.dart` | `start()`, `syncUser()` y `disconnect()` conectan los eventos FCM con la cuenta y el dispositivo activos. |
+| `presentation/notification_host.dart` | `_onNotice()` invalida datos o abre la ruta correspondiente; `_showNotice()` presenta el aviso en primer plano. |
+| `presentation/notification_status_tile.dart` | Muestra en Perfil el estado y los permisos de los avisos. |
+
+### 11.9 Supabase y el orden de instalación
+
+La sección 4 describe las funciones, políticas y triggers que quedan
+activos después de aplicar los cambios. La siguiente tabla describe cómo
+se llega a ese estado. Conservar el historial SQL permite reproducir la
+base y explica qué cambios se hicieron sobre una instalación existente.
+
+| Orden | Archivo en `supabase/` | Responsabilidad |
+|---|---|---|
+| Base | `phase_2.sql` | Crea el esquema de negocio original, políticas, tareas base y asociaciones iniciales de cuentas. Revisar las cuentas de arranque al reconstruir; una instalación existente ya tiene esta base. |
+| 1 | `migrations/20261022_add_points_snapshot.sql` | Conserva los puntos de la tarea en cada registro. |
+| 2 | `migrations/20261022_add_daily_task_limits.sql` | Aplica las restricciones diarias. |
+| 3 | `migrations/20261022_add_push_notifications.sql` | Añade dispositivos, cola, triggers y entrega de avisos de revisión. |
+| 4 | `migrations/20261022_add_inactivity_reminders.sql` | Incorpora reglas y cola para avisos de inactividad. |
+| 5 | `migrations/20261114000100_add_personal_accounts.sql` | Separa el perfil personal del acceso a datos familiares. |
+| 6 | `migrations/20261114000200_rename_personal_profile.sql` | Añade `rename_my_profile()` para cambiar el nombre de la cuenta autenticada. |
+| 7 | `migrations/20261114000300_add_account_avatars.sql` | Crea el bucket privado de fotos y sus políticas. |
+| 8 | `migrations/20261115000100_add_cycle_creation.sql` | Añade los ámbitos de aislamiento y permite crear un ciclo desde una cuenta personal. |
+| 9 | `migrations/20261115000200_add_cycle_planned_end_date.sql` | Guarda la fecha prevista elegida en el calendario. Conserva la firma anterior que recibía días. |
+| 10 | `migrations/20261115000300_add_next_cycle_and_default_tasks.sql` | Prepara la plantilla de tareas y el flujo de creación de ciclos siguientes que después se hace independiente. |
+| 11 | `migrations/20261115000400_add_independent_cycles.sql` | Crea un ámbito nuevo para cada ciclo, archiva catálogo y participantes, conserva historial y libera membresías al cerrar. |
+| 12 | `migrations/20261115000500_add_cycle_invites.sql` | Crea, entrega y valida los códigos de acceso al ciclo activo. |
+
+Los primeros cuatro cambios tienen el mismo prefijo de versión. El
+orden de la tabla es el que usan las pruebas y debe respetarse al
+reconstruir desde SQL Editor. La carpeta actual requiere normalizar
+versiones y registrar el historial aplicado antes de adoptar un flujo
+automatizado con `supabase db push`.
+
+| Otro archivo en `supabase/` | Responsabilidad |
+|---|---|
+| `config.toml` | Configura `send-task-notifications`. El gateway deja pasar al trabajador y el propio handler valida el secreto compartido. |
+| `enable_push_delivery.sql` | Instala el trigger `push_jobs_wake_worker` y la llamada periódica al trabajador. Ambos usan los secretos configurados en Vault. |
+| `enable_inactivity_reminders.sql` | Programa la creación periódica de recordatorios. |
+| `seed_test_season.sql` | Inserción manual anterior al flujo de Administración. Quedó obsoleta con los ciclos independientes. |
+| `functions/send-task-notifications/index.ts` | Carga configuración, adapta consultas y RPC de la cola, e inicia el servidor Deno. |
+| `functions/send-task-notifications/handler.ts` | `createHandler()` autentica, toma trabajos, revisa su vigencia con `isRelevant()` y registra el resultado o reintento. |
+| `functions/send-task-notifications/fcm_sender.ts` | `buildMessage()` arma el aviso. `FcmSender` obtiene un token de Google y envía por FCM HTTP v1. |
+| `functions/send-task-notifications/handler_test.ts` | Prueba autenticación, vigencia, envío, reintentos y errores con un almacén, credenciales y respuestas de prueba. |
+| `tests/package.json` | Declara PGlite y ejecuta las dos suites SQL con `npm test`. |
+| `tests/inactivity_reminders_test.cjs` | Reconstruye el esquema de avisos y prueba horario, elegibilidad, idempotencia y entrega. |
+| `tests/personal_accounts_test.cjs` | Encadena la base y las migraciones. Prueba perfiles, permisos, avatares, ciclos, historial, invitaciones y aislamiento. |
+
+### 11.10 Pruebas Flutter
+
+| Archivos en `test/` | Cobertura |
+|---|---|
+| `widget_test.dart`, `account_menu_test.dart` | Inicio, restauración y cierre de sesión, rutas protegidas y fallos visibles. |
+| `oauth_sign_in_test.dart`, `password_recovery_test.dart`, `provider_avatar_test.dart` | Acceso con proveedores, recuperación y lectura de metadatos del avatar. |
+| `profile_test.dart`, `profile_repository_test.dart` | Perfil, nombre, tema, foto, permisos, membresía y llamadas a Supabase. |
+| `admin_test.dart`, `admin_repository_test.dart` | Acceso administrativo, formulario, catálogo, invitación, historial y cierre. |
+| `tasks_test.dart`, `tasks_repository_test.dart`, `task_failure_test.dart`, `daily_task_limits_test.dart` | Vista de tareas, lecturas y envíos, errores y restricciones diarias. |
+| `reviews_test.dart`, `reviews_repository_test.dart` | Bandeja, aprobación y rechazo, filtros y persistencia. |
+| `activity_test.dart`, `activity_repository_test.dart` | Historial, filtros, paginación y consultas. |
+| `leaderboard_test.dart`, `leaderboard_repository_test.dart` | Presentación del ranking, cálculo y consulta de puntuaciones. |
+| `notifications_test.dart` | Preferencias, alta y desvinculación del dispositivo, avisos y navegación. |
+| `support/fake_activity_repository.dart`, `support/fake_admin_repository.dart`, `support/fake_leaderboard_repository.dart`, `support/fake_profile_repository.dart`, `support/fake_reviews_repository.dart`, `support/fake_tasks_repository.dart` | Implementaciones en memoria de las interfaces que inyectan datos y errores reproducibles en las pruebas. |
+| `support/fake_notification_services.dart` | Sustituye FCM y Supabase en los flujos de avisos. |
+
+## 12. Auditoría del código, la base y Git
+
+La revisión partió de una copia limpia con 239 archivos versionados. Se
+contrastaron las importaciones de los 89 archivos Dart de producción, los
+27 archivos de pruebas Flutter, las referencias de SQL y el inventario
+de Git. Los 89 archivos Dart de producción son alcanzables desde
+`lib/main.dart`. Eso confirma el uso de los archivos y deja abierta la
+posibilidad de que algún miembro de un archivo en uso sea redundante.
+
+| Hallazgo | Decisión de mantenimiento |
+|---|---|
+| `supabase/seed_test_season.sql` | Primer candidato a retirar. Ningún flujo de la app ni prueba depende de él. Cuando no existe un ciclo activo, el `INSERT` antiguo desde SQL Editor intenta crear uno sin el ámbito requerido. Administración ya cubre el caso mediante la RPC vigente. |
+| Ocho `.gitkeep` en `lib/` | Se pueden retirar. Siete están en carpetas con código y uno conserva la carpeta vacía `core/utils/`. |
+| `ActivityEntry.awardedPoints` | Solo lo invocan pruebas. La tarjeta usa `pointsSnapshot` según el estado. Si se retira, ajustar las pruebas que consultan el getter y conservar las que verifican el comportamiento visible de los puntos. |
+| `ActivityEntry.userId` | En producción se rellena al leer una fila y el historial no vuelve a usarlo. El repositorio ya filtra por usuario. El fake sí lo usa para filtrar sus datos. Simplificarlo implicaría ajustar también el fake y quitar la columna de la proyección, conservando el filtro por `user_id`. |
+| `create_first_cycle(text, integer)` | Flutter usa la firma con fecha. La variante con duración conserva compatibilidad y tiene cobertura SQL. Dejarla hasta comprobar qué versiones de la app siguen instaladas. Si se retira, hacerlo mediante una nueva migración. |
+| `private.cycle_groups`, `cycle_group_id`, `is_household_member` | Mecanismos vigentes de aislamiento y compatibilidad. Crear otro ciclo genera otro identificador. El cierre conserva participantes, puntos y catálogo archivados, y libera las membresías activas. Cambiar estos nombres o quitar el ámbito afectaría RLS, consultas y avisos. |
+| Funciones o políticas antiguas en migraciones | Algunas aparecen sustituidas o eliminadas por archivos posteriores, como el permiso de inserción directa en `seasons`. Conservar las migraciones y juzgar qué está vigente a partir del esquema final. |
+| SQL, configuración y pruebas operativas | Conservar `phase_2.sql`, migraciones, los dos `enable_*.sql`, configuración, Edge Function y pruebas. Cada pieza participa en reconstrucción, despliegue o verificación, aunque Flutter no lea esos archivos al ejecutarse. |
+| Recursos nativos y web | Conservar mientras se mantenga el destino correspondiente. Xcode, Gradle y el navegador consumen esos archivos fuera del grafo Dart. `RunnerTests.swift` trae una prueba vacía pero pertenece al target Xcode. |
+| Archivos de conveniencia | `.vscode/`, `devtools_options.yaml` y las instrucciones generadas de `ios/Runner/Assets.xcassets/LaunchImage.imageset/README.md` pueden revisarse por separado. Hosting usa `.firebaserc` y `firebase.json` cuando se publica web. |
+| Secretos y generados | Git ignora salidas de compilación, dependencias locales y archivos sensibles cubiertos por las reglas del proyecto. `android/app/google-services.json` es configuración del cliente Android. Las credenciales de la cuenta de servicio de FCM y el secreto de invocación del trabajador se configuran fuera del repositorio. |
+
+Verificación local de esta revisión: análisis Dart sin hallazgos, 122
+pruebas Flutter, dos suites SQL con PGlite y diez casos del handler con
+un adaptador de pruebas en Node. Esta última ejecución verifica la lógica
+del trabajador y su cliente FCM con dobles; la puesta en marcha con Deno y
+la entrega remota se comprueban por separado.
+
+La consulta del catálogo local confirmó once políticas, nueve triggers y
+las funciones de `private` y `public` instaladas por el esquema y las
+migraciones. El trigger de activación de la entrega y los dos trabajos Cron
+pertenecen a los scripts operativos y quedan fuera de esa cuenta. El panel
+remoto, sus objetos manuales, secretos y trabajos programados requieren
+acceso al proyecto desplegado. Las confirmaciones de uso de
+Android y del proyecto remoto proceden de las pruebas del responsable del
+proyecto. El inventario de esta revisión permite una limpieza pequeña
+sin reestructurar la aplicación ni eliminar su historial.
