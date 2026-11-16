@@ -62,6 +62,10 @@ class _NotificationHostState extends ConsumerState<NotificationHost> {
 
   void _onNotice(PushNotice notice, bool opened) {
     if (!mounted) return;
+    if (notice.kind == PushNoticeKind.announcement) {
+      _showNotice(notice);
+      return;
+    }
     final auth = ref.read(currentUserProvider);
     final user = auth.asData?.value;
     if (user == null) {
@@ -82,24 +86,33 @@ class _NotificationHostState extends ConsumerState<NotificationHost> {
       router.go(notice.route);
       return;
     }
-    if (!_displayed.add(notice.id)) return;
+    _showNotice(
+      notice,
+      onView: () {
+        if (ref.read(currentUserProvider).asData?.value?.id ==
+            notice.recipientId) {
+          router.go(notice.route);
+        }
+      },
+    );
+  }
+
+  void _showNotice(PushNotice notice, {VoidCallback? onView}) {
+    final context = ref
+        .read(appRouterProvider)
+        .routerDelegate
+        .navigatorKey
+        .currentContext;
+    if (context == null || !_displayed.add(notice.id)) return;
     if (_displayed.length > 100) _displayed.remove(_displayed.first);
-    final context = router.routerDelegate.navigatorKey.currentContext;
-    if (context == null) return;
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(
       SnackBar(
         duration: const Duration(seconds: 3),
         persist: false,
         content: Text(notice.message),
-        action: SnackBarAction(
-          label: 'Ver',
-          onPressed: () {
-            if (ref.read(currentUserProvider).asData?.value?.id ==
-                notice.recipientId) {
-              router.go(notice.route);
-            }
-          },
-        ),
+        action: onView == null
+            ? null
+            : SnackBarAction(label: 'Ver', onPressed: onView),
       ),
     );
   }

@@ -308,6 +308,134 @@ async function main() {
     );
     console.log("PASS: cycle creation, scoped administrators and notifications, and unchanged legacy data");
     console.log("PASS: default catalog copied once and next cycle keeps the edited catalog");
+
+    await db.exec("reset role");
+    await db.exec(load("migrations/20261115000400_add_independent_cycles.sql"));
+    await asUser(personal);
+    assert.deepEqual(await rows("select role, cycle_group_id from public.users"), [
+      { role: "sibling", cycle_group_id: null },
+    ]);
+    assert.deepEqual(await rows("select id, status from public.seasons"), [
+      { id: personalSeason, status: "closed" },
+    ]);
+    assert.deepEqual(await rows("select task_name_snapshot, requester_name_snapshot from public.task_logs"), [
+      { task_name_snapshot: "Mi tarea", requester_name_snapshot: "Elena Marín" },
+    ]);
+    assert.deepEqual(await rows("select id from public.tasks"), []);
+    assert.deepEqual(await rows(`select name from public.get_closed_cycle_catalog('${personalSeason}')`), [
+      { name: "Mi tarea" },
+    ]);
+    const [{ id: freshCycle }] = await rows("select public.create_first_cycle('Ciclo independiente', 10) as id");
+    assert.deepEqual(await catalog(), originalCatalog);
+    assert.deepEqual(await rows("select id from public.seasons where status = 'active'"), [{ id: freshCycle }]);
+    assert.deepEqual(await rows(`select id from public.task_logs where season_id = '${freshCycle}'`), []);
+    await assert.rejects(
+      () => db.exec("select public.create_first_cycle('Ciclo simultáneo', 10)"),
+      /CYCLE_MEMBERSHIP_EXISTS/,
+    );
+    await assert.rejects(
+      () => db.exec("insert into public.seasons(name) values ('Reutilizar catálogo')"),
+      /permission denied/,
+    );
+    await asUser(newCreator);
+    assert.deepEqual(await rows(`select id from public.seasons where id = '${personalSeason}'`), []);
+    assert.deepEqual(await rows(`select id from public.task_logs where season_id = '${personalSeason}'`), []);
+    assert.deepEqual(await rows(`select id from public.get_closed_cycle_catalog('${personalSeason}')`), []);
+
+    await asUser(member);
+    const [archivedLog] = await rows(`insert into public.task_logs(user_id, task_id, season_id)
+      values ('${member}', '${legacyTask.id}', '${legacySeason.id}') returning id`);
+    await asUser(admin);
+    await db.exec(`update public.tasks set name = 'Nombre editado' where id = '${legacyTask.id}'`);
+    assert.deepEqual(await rows(`update public.task_logs set status = 'approved'
+      where id = '${archivedLog.id}' returning task_name_snapshot, reviewer_name_snapshot, points_snapshot`), [
+        { task_name_snapshot: "Lavar los platos", reviewer_name_snapshot: "Carlos", points_snapshot: 5 },
+    ]);
+    assert.deepEqual(await rows(`update public.seasons set status = 'closed'
+      where id = '${legacySeason.id}' returning id`), [ { id: legacySeason.id } ]);
+    await asUser(member);
+    assert.deepEqual(await rows("select role, is_household_member, cycle_group_id from public.users"), [
+      { role: "sibling", is_household_member: false, cycle_group_id: null },
+    ]);
+    assert.deepEqual(await rows(`select id, status from public.seasons where id = '${legacySeason.id}'`), [
+      { id: legacySeason.id, status: "closed" },
+    ]);
+    assert.deepEqual(await rows(`select status, task_name_snapshot, points_snapshot
+      from public.task_logs where id = '${archivedLog.id}'`), [
+        { status: "approved", task_name_snapshot: "Lavar los platos", points_snapshot: 5 },
+    ]);
+    assert.deepEqual(await rows(`select name from public.get_closed_cycle_catalog('${legacySeason.id}')
+      where id = '${legacyTask.id}'`), [{ name: "Nombre editado" }]);
+    await asUser(admin);
+    assert.deepEqual(await rows(`update public.tasks set points = 99 where id = '${legacyTask.id}' returning id`), []);
+    assert.deepEqual(await rows(`update public.task_logs set status = 'approved'
+      where season_id = '${legacySeason.id}' returning id`), []);
+    assert.deepEqual(await rows("select role, cycle_group_id from public.users"), [
+      { role: "sibling", cycle_group_id: null },
+    ]);
+    await db.exec("reset role");
+    assert.equal((await rows(`select id from public.tasks where id = '${legacyTask.id}'`)).length, 1);
+    console.log("PASS: independent cycles archive catalog and results, release all members, and preserve access for participants");
+
+    await db.exec(load("migrations/20261115000500_add_cycle_invites.sql"));
+    await asUser(member);
+    await assert.rejects(
+      () => db.exec("select public.join_cycle_by_code('000000000000')"),
+      /CYCLE_INVITE_INVALID/,
+    );
+    await assert.rejects(
+      () => db.exec("select code from private.cycle_invites"),
+      /permission denied/,
+    );
+    await asUser(personal);
+    const [{ code }] = await rows(`select public.get_or_create_cycle_invite('${freshCycle}') as code`);
+    assert.match(code, /^[0-9A-F]{12}$/);
+    assert.deepEqual(await rows(`select public.get_or_create_cycle_invite('${freshCycle}') as code`), [{ code }]);
+    await asUser(newCreator);
+    await assert.rejects(
+      () => db.exec(`select public.get_or_create_cycle_invite('${freshCycle}')`),
+      /CYCLE_INVITE_ADMIN_REQUIRED/,
+    );
+    await assert.rejects(
+      () => db.exec(`select public.join_cycle_by_code('${code}')`),
+      /CYCLE_MEMBERSHIP_EXISTS/,
+    );
+    await asUser(pending);
+    await assert.rejects(
+      () => db.exec(`select public.join_cycle_by_code('${code}')`),
+      /CYCLE_PROFILE_UNAVAILABLE/,
+    );
+    await db.exec("set role anon");
+    await assert.rejects(
+      () => db.exec(`select public.join_cycle_by_code('${code}')`),
+      /permission denied/,
+    );
+    await asUser(member);
+    const formattedCode = code.toLowerCase().match(/.{4}/g).join(" - ");
+    assert.deepEqual(await rows(`select public.join_cycle_by_code(' ${formattedCode} ') as id`), [
+      { id: freshCycle },
+    ]);
+    assert.deepEqual(await rows(`select public.join_cycle_by_code('${code}') as id`), [{ id: freshCycle }]);
+    assert.deepEqual(await rows("select role, is_household_member from public.users where id = auth.uid()"), [
+      { role: "sibling", is_household_member: true },
+    ]);
+    assert.deepEqual(await catalog(), originalCatalog);
+    await assert.rejects(
+      () => db.exec(`select public.get_or_create_cycle_invite('${freshCycle}')`),
+      /CYCLE_INVITE_ADMIN_REQUIRED/,
+    );
+    await asUser(personal);
+    await db.exec(`update public.seasons set status = 'closed' where id = '${freshCycle}'`);
+    await asUser(member);
+    assert.deepEqual(await rows(`select id, status from public.seasons where id = '${freshCycle}'`), [
+      { id: freshCycle, status: "closed" },
+    ]);
+    assert.deepEqual(await rows("select cycle_group_id from public.users"), [{ cycle_group_id: null }]);
+    await assert.rejects(
+      () => db.exec(`select public.join_cycle_by_code('${code}')`),
+      /CYCLE_INVITE_INVALID/,
+    );
+    console.log("PASS: active invitation, one membership, member role and closed-cycle history");
   } finally {
     await db.close();
   }

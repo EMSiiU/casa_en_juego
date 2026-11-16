@@ -6,6 +6,12 @@ class ProfileFailure implements Exception {
   static String messageFor(Object error) {
     if (error is ProfileFailure) return error.message;
     if (error is PostgrestException) {
+      if (error.message == 'CYCLE_INVITE_INVALID') {
+        return 'El código no es válido o el ciclo ya terminó.';
+      }
+      if (error.message == 'CYCLE_MEMBERSHIP_EXISTS') {
+        return 'Tu cuenta ya pertenece a un ciclo activo.';
+      }
       if (error.message == 'CYCLE_DETAILS_INVALID') {
         return 'Revisa el nombre y elige una fecha de fin prevista.';
       }
@@ -13,7 +19,7 @@ class ProfileFailure implements Exception {
         return 'Elige una fecha posterior al día de inicio en Ciudad de México.';
       }
       if (error.message == 'CYCLE_PROFILE_UNAVAILABLE') {
-        return 'Inicia sesión con tu correo confirmado para crear un ciclo.';
+        return 'Inicia sesión con tu correo confirmado para continuar.';
       }
       if (error.code == '22023') {
         return 'Escribe un nombre de 1 a 100 caracteres, en una sola línea.';

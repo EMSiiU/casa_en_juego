@@ -8,11 +8,13 @@ import '../models/task_draft.dart';
 
 abstract interface class AdminRepository {
   Future<AdminDashboard> loadDashboard();
+  Future<String> loadInviteCode(String seasonId);
+  Future<List<AdminSeason>> loadClosedCycles();
+  Future<SeasonSummary> loadClosedCycle(String id);
   Future<List<HouseholdTask>> loadTasks();
   Future<HouseholdTask> loadTask(String id);
   Future<void> saveTask({String? id, required TaskDraft draft});
   Future<void> closeSeason(String id);
-  Future<void> startSeason(String name, {required DateTime plannedEndDate});
 }
 
 class SupabaseAdminRepository implements AdminRepository {
@@ -24,32 +26,30 @@ class SupabaseAdminRepository implements AdminRepository {
       'id, name, points, icon_name, is_active, is_daily_limited';
 
   @override
+  Future<String> loadInviteCode(String seasonId) async =>
+      await _client.rpc<String>(
+        'get_or_create_cycle_invite',
+        params: {'p_season_id': seasonId},
+      );
+
+  @override
   Future<AdminDashboard> loadDashboard() async {
-    final rows = await Future.wait<Map<String, dynamic>?>([
-      _client
-          .from('seasons')
-          .select(_seasonColumns)
-          .eq('status', 'active')
-          .maybeSingle(),
-      _client
-          .from('seasons')
-          .select(_seasonColumns)
-          .eq('status', 'closed')
-          .order('end_date', ascending: false)
-          .order('id', ascending: false)
-          .limit(1)
-          .maybeSingle(),
-    ]);
-    final summaries = await Future.wait<SeasonSummary?>([
-      for (final row in rows)
-        row == null
-            ? Future.value(null)
-            : _loadSummary(AdminSeason.fromJson(row)),
-    ]);
-    return AdminDashboard(active: summaries[0], latestClosed: summaries[1]);
+    final row = await _client
+        .from('seasons')
+        .select(_seasonColumns)
+        .eq('status', 'active')
+        .maybeSingle();
+    return AdminDashboard(
+      active: row == null
+          ? null
+          : await _loadSummary(AdminSeason.fromJson(row)),
+    );
   }
 
-  Future<SeasonSummary> _loadSummary(AdminSeason season) async {
+  Future<SeasonSummary> _loadSummary(
+    AdminSeason season, {
+    List<HouseholdTask> archivedCatalog = const [],
+  }) async {
     const pageSize = 500;
     final logs = <AdminLog>[];
     var offset = 0;
@@ -57,17 +57,69 @@ class SupabaseAdminRepository implements AdminRepository {
       final rows = await _client
           .from('task_logs')
           .select(
-            'id, user_id, status, points_snapshot, requester:users!task_logs_user_id_fkey(name)',
+            'id, user_id, status, points_snapshot, requester_name_snapshot',
           )
           .eq('season_id', season.id)
+          .order('requested_at')
           .order('id')
           .range(offset, offset + pageSize - 1);
       logs.addAll(rows.map(AdminLog.fromJson));
       if (rows.length < pageSize) {
-        return SeasonSummary(season: season, logs: logs);
+        return SeasonSummary(
+          season: season,
+          logs: logs,
+          archivedCatalog: archivedCatalog,
+        );
       }
       offset += pageSize;
     }
+  }
+
+  @override
+  Future<List<AdminSeason>> loadClosedCycles() async {
+    const pageSize = 500;
+    final cycles = <AdminSeason>[];
+    var offset = 0;
+    while (true) {
+      final rows = await _client
+          .from('seasons')
+          .select(_seasonColumns)
+          .eq('status', 'closed')
+          .order('end_date', ascending: false)
+          .order('id', ascending: false)
+          .range(offset, offset + pageSize - 1);
+      cycles.addAll(rows.map(AdminSeason.fromJson));
+      if (rows.length < pageSize) return List.unmodifiable(cycles);
+      offset += pageSize;
+    }
+  }
+
+  @override
+  Future<SeasonSummary> loadClosedCycle(String id) async {
+    final row = await _client
+        .from('seasons')
+        .select(_seasonColumns)
+        .eq('id', id)
+        .eq('status', 'closed')
+        .maybeSingle();
+    if (row == null) {
+      throw const AdminFailure('Ese ciclo no está disponible en tu historial.');
+    }
+    const pageSize = 500;
+    final catalog = <HouseholdTask>[];
+    for (var offset = 0; ; offset += pageSize) {
+      final items = await _client
+          .rpc<List<Map<String, dynamic>>>(
+            'get_closed_cycle_catalog',
+            params: {'p_season_id': id},
+          )
+          .order('name')
+          .order('id')
+          .range(offset, offset + pageSize - 1);
+      catalog.addAll(items.map(HouseholdTask.fromJson));
+      if (items.length < pageSize) break;
+    }
+    return _loadSummary(AdminSeason.fromJson(row), archivedCatalog: catalog);
   }
 
   @override
@@ -137,21 +189,5 @@ class SupabaseAdminRepository implements AdminRepository {
         'Ese ciclo ya no está activo. Actualiza el panel.',
       );
     }
-  }
-
-  @override
-  Future<void> startSeason(
-    String name, {
-    required DateTime plannedEndDate,
-  }) async {
-    // El índice único garantiza un solo ciclo activo por grupo.
-    await _client
-        .from('seasons')
-        .insert({
-          'name': name.trim(),
-          'planned_end_date': plannedEndDate.toIso8601String().split('T').first,
-        })
-        .select('id')
-        .single();
   }
 }

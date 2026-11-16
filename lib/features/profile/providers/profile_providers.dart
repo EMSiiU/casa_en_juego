@@ -96,6 +96,12 @@ class ProfileController extends AsyncNotifier<ProfileState> {
         return user;
       }, onSaved: (_) => ref.invalidate(currentUserProvider));
 
+  Future<void> joinCycle(String code) => _save((repository, user) async {
+    if (user.isHouseholdMember) return null;
+    await repository.joinCycle(code);
+    return user;
+  }, onSaved: (_) => ref.invalidate(currentUserProvider));
+
   Future<void> _writePhoto({required bool remove}) => _save((_, user) async {
     final photos = ref.read(accountPhotoRepositoryProvider);
     try {

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../activity/presentation/activity_date_formatter.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../../profile/providers/profile_providers.dart';
 import '../models/admin_dashboard.dart';
@@ -11,6 +11,7 @@ import '../models/admin_failure.dart';
 import '../providers/admin_providers.dart';
 import 'widgets/admin_scaffold.dart';
 import 'widgets/close_season_sheet.dart';
+import 'widgets/closed_cycle_card.dart';
 import 'widgets/cycle_form_dialog.dart';
 
 class AdminPage extends ConsumerStatefulWidget {
@@ -51,13 +52,52 @@ class _AdminPageState extends ConsumerState<AdminPage> {
     }
   }
 
-  Future<void> _createCycle({required bool first}) async {
+  Widget _buildInvitation(String seasonId) {
+    final codeProvider = adminInviteCodeProvider(seasonId);
+    return Card(
+      margin: EdgeInsets.zero,
+      child: ref
+          .watch(codeProvider)
+          .when(
+            loading: () => const ListTile(title: Text('Cargando código…')),
+            error: (error, stack) => ListTile(
+              title: const Text('No se pudo cargar el código'),
+              trailing: TextButton(
+                onPressed: () => ref.invalidate(codeProvider),
+                child: const Text('Reintentar'),
+              ),
+            ),
+            data: (code) => ListTile(
+              title: const Text('Código de invitación'),
+              subtitle: SelectableText(code),
+              trailing: IconButton(
+                tooltip: 'Copiar código',
+                icon: const Icon(Icons.copy_outlined),
+                onPressed: () async {
+                  String message;
+                  try {
+                    await Clipboard.setData(ClipboardData(text: code));
+                    message = 'Código copiado.';
+                  } catch (_) {
+                    message = 'Selecciona el código para copiarlo.';
+                  }
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(SnackBar(content: Text(message)));
+                },
+              ),
+            ),
+          ),
+    );
+  }
+
+  Future<void> _createCycle({required bool hasHistory}) async {
     final userId = ref.read(currentUserProvider).asData?.value?.id;
     if (userId == null) return;
     final draft = await showDialog<CycleDraft>(
       context: context,
       builder: (context) => CycleFormDialog(
-        title: first ? 'Crear ciclo' : 'Crear siguiente ciclo',
+        title: hasHistory ? 'Crear siguiente ciclo' : 'Crear ciclo',
       ),
     );
     if (!mounted ||
@@ -65,39 +105,39 @@ class _AdminPageState extends ConsumerState<AdminPage> {
         ref.read(currentUserProvider).asData?.value?.id != userId) {
       return;
     }
-    if (first) {
-      await ref
-          .read(profileProvider.notifier)
-          .createFirstCycle(draft.name, draft.plannedEndDate);
-      return;
-    }
-    final started = await ref
-        .read(adminActionProvider.notifier)
-        .startSeason(draft.name, draft.plannedEndDate);
-    if (mounted && started) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          duration: Duration(seconds: 3),
-          persist: false,
-          content: Text('Nuevo ciclo iniciado.'),
-        ),
-      );
-    }
+    await ref
+        .read(profileProvider.notifier)
+        .createFirstCycle(draft.name, draft.plannedEndDate);
   }
 
   Widget _buildFirstCycle({required bool refreshingMembership}) {
     final profile = ref.watch(profileProvider);
+    final latest = ref.watch(closedCyclesProvider).asData?.value.firstOrNull;
     final isBusy =
         refreshingMembership ||
         profile.isLoading ||
         (profile.value?.isSaving ?? false);
     return AdminScaffold(
-      title: 'Tu primer ciclo',
+      title: latest == null ? 'Tu primer ciclo' : 'Un nuevo comienzo',
       isBusy: isBusy,
       showNavigationBar: false,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
         children: [
+          if (latest != null) ...[
+            ref
+                .watch(closedCycleProvider(latest.id))
+                .when(
+                  data: (summary) => ClosedCycleCard(summary: summary),
+                  loading: () => const LinearProgressIndicator(),
+                  error: (error, stack) => AdminLoadError(
+                    message: AdminFailure.messageFor(error),
+                    onRetry: () =>
+                        ref.invalidate(closedCycleProvider(latest.id)),
+                  ),
+                ),
+            const SizedBox(height: 20),
+          ],
           if (profile.hasError)
             AdminLoadError(
               message: 'No pudimos cargar tu perfil.',
@@ -105,9 +145,17 @@ class _AdminPageState extends ConsumerState<AdminPage> {
             )
           else
             FilledButton.icon(
-              onPressed: isBusy ? null : () => _createCycle(first: true),
+              onPressed: isBusy
+                  ? null
+                  : () => _createCycle(hasHistory: latest != null),
               icon: const Icon(Icons.add),
-              label: Text(isBusy ? 'Preparando…' : 'Crear ciclo'),
+              label: Text(
+                isBusy
+                    ? 'Preparando…'
+                    : latest == null
+                    ? 'Crear ciclo'
+                    : 'Crear siguiente ciclo',
+              ),
             ),
           if (profile.value?.errorMessage case final message?) ...[
             const SizedBox(height: 16),
@@ -153,130 +201,97 @@ class _AdminPageState extends ConsumerState<AdminPage> {
                 message: AdminFailure.messageFor(error),
                 onRetry: _refresh,
               ),
-              data: (data) => Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (data.active != null) ...[
-                    _ActiveSeasonCard(summary: data.active!),
-                    const SizedBox(height: 20),
-                  ] else ...[
-                    if (data.latestClosed != null) ...[
-                      _ClosedSeasonCard(summary: data.latestClosed!),
-                      const SizedBox(height: 20),
-                    ],
-                    FilledButton.icon(
-                      onPressed: action.isBusy
-                          ? null
-                          : () => _createCycle(first: false),
-                      icon: const Icon(Icons.add),
-                      label: Text(
-                        action.isBusy ? 'Iniciando…' : 'Crear siguiente ciclo',
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    const AdminInfo(
-                      'Mientras no haya ciclo activo, los miembros no pueden registrar tareas.',
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                  Card(
-                    margin: EdgeInsets.zero,
-                    child: ListTile(
-                      leading: Icon(
-                        Icons.checklist,
-                        color: context.appColors.primary,
-                      ),
-                      title: const Text('Gestionar tareas'),
-                      subtitle: const Text('Catálogo del grupo y puntos'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: action.isBusy
-                          ? null
-                          : () {
-                              ref
-                                  .read(adminActionProvider.notifier)
-                                  .clearError();
-                              context.pushNamed('adminTasks');
-                            },
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Card(
-                    margin: EdgeInsets.zero,
-                    child: Padding(
-                      padding: EdgeInsets.all(18),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Miembros del grupo',
-                            style: TextStyle(fontWeight: FontWeight.w600),
+              data: (data) => data.active == null
+                  ? AdminLoadError(
+                      message:
+                          'No hay un ciclo activo. Actualiza tu membresía.',
+                      onRetry: () => ref.invalidate(currentUserProvider),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _ActiveSeasonCard(summary: data.active!),
+                        const SizedBox(height: 20),
+                        Card(
+                          margin: EdgeInsets.zero,
+                          child: ListTile(
+                            leading: Icon(
+                              Icons.checklist,
+                              color: context.appColors.primary,
+                            ),
+                            title: const Text('Gestionar tareas'),
+                            subtitle: const Text('Catálogo del ciclo y puntos'),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: action.isBusy
+                                ? null
+                                : () {
+                                    ref
+                                        .read(adminActionProvider.notifier)
+                                        .clearError();
+                                    context.pushNamed('adminTasks');
+                                  },
                           ),
-                          SizedBox(height: 10),
-                          Text(
-                            'La incorporación de miembros por código estará disponible más adelante.',
-                            style: TextStyle(
-                              color: context.appColors.onSurfaceVariant,
-                              fontSize: 12,
-                              height: 1.5,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildInvitation(data.active!.season.id),
+                        if (data.active != null) ...[
+                          const SizedBox(height: 24),
+                          FilledButton.tonalIcon(
+                            onPressed: action.isBusy
+                                ? null
+                                : () async {
+                                    ref
+                                        .read(adminActionProvider.notifier)
+                                        .clearError();
+                                    final closed =
+                                        await showModalBottomSheet<bool>(
+                                          context: context,
+                                          isScrollControlled: true,
+                                          isDismissible: false,
+                                          enableDrag: false,
+                                          showDragHandle: false,
+                                          builder: (context) =>
+                                              CloseSeasonSheet(
+                                                summary: data.active!,
+                                              ),
+                                        );
+                                    if (context.mounted && closed == true) {
+                                      ref.invalidate(currentUserProvider);
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                            const SnackBar(
+                                              duration: Duration(seconds: 3),
+                                              persist: false,
+                                              content: Text(
+                                                'Ciclo finalizado. Resultados conservados.',
+                                              ),
+                                            ),
+                                          );
+                                    }
+                                  },
+                            icon: const Icon(Icons.inventory_2_outlined),
+                            label: const Text('Finalizar ciclo'),
+                          ),
+                          const SizedBox(height: 12),
+                          AdminInfo(
+                            data.active!.pendingCount > 0
+                                ? 'Antes de cerrar, revisa ${data.active!.pendingCount == 1 ? 'la solicitud pendiente' : 'las ${data.active!.pendingCount} solicitudes pendientes'}. Recomendamos resolverlas primero.'
+                                : 'Solo puedes iniciar otro ciclo cuando el actual haya finalizado.',
+                            warning: data.active!.pendingCount > 0,
+                          ),
+                        ],
+                        if (action.errorMessage != null) ...[
+                          const SizedBox(height: 16),
+                          Semantics(
+                            liveRegion: true,
+                            child: Text(
+                              action.errorMessage!,
+                              style: TextStyle(color: context.appColors.error),
                             ),
                           ),
                         ],
-                      ),
+                      ],
                     ),
-                  ),
-                  if (data.active != null) ...[
-                    const SizedBox(height: 24),
-                    FilledButton.tonalIcon(
-                      onPressed: action.isBusy
-                          ? null
-                          : () async {
-                              ref
-                                  .read(adminActionProvider.notifier)
-                                  .clearError();
-                              final closed = await showModalBottomSheet<bool>(
-                                context: context,
-                                isScrollControlled: true,
-                                isDismissible: false,
-                                enableDrag: false,
-                                showDragHandle: false,
-                                builder: (context) =>
-                                    CloseSeasonSheet(summary: data.active!),
-                              );
-                              if (context.mounted && closed == true) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    duration: Duration(seconds: 3),
-                                    persist: false,
-                                    content: Text(
-                                      'Ciclo finalizado. Resultados conservados.',
-                                    ),
-                                  ),
-                                );
-                              }
-                            },
-                      icon: const Icon(Icons.inventory_2_outlined),
-                      label: const Text('Finalizar ciclo'),
-                    ),
-                    const SizedBox(height: 12),
-                    AdminInfo(
-                      data.active!.pendingCount > 0
-                          ? 'Antes de cerrar, revisa ${data.active!.pendingCount == 1 ? 'la solicitud pendiente' : 'las ${data.active!.pendingCount} solicitudes pendientes'}. Recomendamos resolverlas primero.'
-                          : 'Solo puedes iniciar otro ciclo cuando el actual haya finalizado.',
-                      warning: data.active!.pendingCount > 0,
-                    ),
-                  ],
-                  if (action.errorMessage != null) ...[
-                    const SizedBox(height: 16),
-                    Semantics(
-                      liveRegion: true,
-                      child: Text(
-                        action.errorMessage!,
-                        style: TextStyle(color: context.appColors.error),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
             ),
           ],
         ),
@@ -362,91 +377,4 @@ class _ActiveSeasonCard extends StatelessWidget {
       ),
     ),
   );
-}
-
-class _ClosedSeasonCard extends StatelessWidget {
-  const _ClosedSeasonCard({required this.summary});
-  final SeasonSummary summary;
-  @override
-  Widget build(BuildContext context) {
-    final results = summary.results;
-    final hasPoints = summary.approvedPoints > 0;
-    final tied = results.length > 1 && results[1].position == 1;
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${summary.season.name} · Finalizado',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            if (summary.season.endDate != null)
-              Text(
-                'Cierre: ${ActivityDateFormatter.format(summary.season.endDate!)} (UTC−5)',
-                style: TextStyle(
-                  color: context.appColors.onSurfaceVariant,
-                  fontSize: 11,
-                ),
-              ),
-            const SizedBox(height: 16),
-            if (!hasPoints)
-              const Text('Sin ganador · no hubo puntos aprobados.')
-            else
-              for (final result in results)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Row(
-                    children: [
-                      Text(
-                        '${result.position}.',
-                        style: TextStyle(color: context.appColors.primary),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(result.name),
-                            if (result.position == 1)
-                              Text(
-                                tied
-                                    ? 'Empate en primer lugar'
-                                    : 'Ganador del ciclo',
-                                style: Theme.of(context).textTheme.labelSmall,
-                              ),
-                          ],
-                        ),
-                      ),
-                      Text('${result.points} pts'),
-                    ],
-                  ),
-                ),
-            Text(
-              '${summary.approvedPoints} puntos aprobados · Resultados conservados',
-              style: TextStyle(
-                color: context.appColors.onSurfaceVariant,
-                fontSize: 11,
-              ),
-            ),
-            if (summary.pendingCount > 0) ...[
-              const SizedBox(height: 10),
-              Text(
-                summary.pendingCount == 1
-                    ? '1 solicitud quedó sin resolver y no suma puntos.'
-                    : '${summary.pendingCount} solicitudes quedaron sin resolver y no suman puntos.',
-                style: TextStyle(
-                  color: context.statusColors.pending,
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
 }

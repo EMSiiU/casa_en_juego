@@ -24,13 +24,12 @@ class SupabaseActivityRepository implements ActivityRepository {
     required int offset,
     required int limit,
   }) async {
-    // Se especifica la FK porque task_logs tiene dos referencias a users.
-    // El historial incluye ciclos cerrados, sin depender de una temporada activa.
+    // Las etiquetas archivadas se leen sin acceder al catálogo ni a otros perfiles.
     var query = _client
         .from('task_logs')
         .select(
           'id, user_id, status, points_snapshot, requested_at, resolved_at, '
-          'tasks(name), seasons(name, status), reviewer:users!task_logs_approved_by_fkey(name)',
+          'task_name_snapshot, reviewer_name_snapshot, seasons(name, status)',
         )
         .eq('user_id', userId);
     if (filter.status != null) query = query.eq('status', filter.status!.name);

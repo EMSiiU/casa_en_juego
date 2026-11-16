@@ -66,7 +66,7 @@ class CloseSeasonSheet extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                'El cierre no adjudica puntos ni traslada solicitudes al siguiente ciclo. Las pendientes quedarán sin resolver.',
+                'Las solicitudes pendientes quedarán sin resolver. Al cerrar, los participantes quedan libres para iniciar otro ciclo y conservan este en su historial.',
                 style: TextStyle(
                   color: context.appColors.onSurfaceVariant,
                   fontSize: 12,

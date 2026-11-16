@@ -15,19 +15,17 @@ class ActivityEntry {
   });
 
   factory ActivityEntry.fromJson(Map<String, dynamic> json) {
-    final task = json['tasks'] as Map<String, dynamic>;
     final season = json['seasons'] as Map<String, dynamic>;
-    final reviewer = json['reviewer'] as Map<String, dynamic>?;
     return ActivityEntry(
       id: json['id'] as String,
       userId: json['user_id'] as String,
-      taskName: task['name'] as String,
+      taskName: json['task_name_snapshot'] as String,
       seasonName: season['name'] as String,
       isSeasonClosed: season['status'] == 'closed',
       status: TaskLogStatus.values.byName(json['status'] as String),
       pointsSnapshot: json['points_snapshot'] as int,
       requestedAt: DateTime.parse(json['requested_at'] as String),
-      reviewerName: reviewer?['name'] as String?,
+      reviewerName: json['reviewer_name_snapshot'] as String?,
       resolvedAt: json['resolved_at'] == null
           ? null
           : DateTime.parse(json['resolved_at'] as String),

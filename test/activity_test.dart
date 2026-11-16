@@ -80,9 +80,9 @@ void main() {
       'points_snapshot': 3,
       'requested_at': '2026-10-22T15:42:18Z',
       'resolved_at': null,
-      'tasks': {'name': 'Barrer el cuarto'},
+      'task_name_snapshot': 'Barrer el cuarto',
       'seasons': {'name': 'Octubre 2026', 'status': 'closed'},
-      'reviewer': null,
+      'reviewer_name_snapshot': null,
     });
     expect(entry.isSeasonClosed, isTrue);
     expect(entry.reviewerName, isNull);

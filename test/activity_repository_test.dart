@@ -30,9 +30,9 @@ void main() {
               'points_snapshot': 8,
               'requested_at': '2026-10-22T15:42:18Z',
               'resolved_at': '2026-10-22T16:00:00Z',
-              'tasks': {'name': 'Limpiar el baño'},
+              'task_name_snapshot': 'Limpiar el baño',
               'seasons': {'name': 'Septiembre 2026', 'status': 'closed'},
-              'reviewer': {'name': 'Luis'},
+              'reviewer_name_snapshot': 'Luis',
             },
           ),
         ),
@@ -51,29 +51,32 @@ void main() {
     await server.close(force: true);
   });
 
-  test('Activity queries the current user and resolves the reviewer through its foreign key', () async {
-    final page = await repository.loadPage(
-      userId: 'member-id',
-      filter: ActivityFilter.all,
-      offset: 0,
-      limit: 20,
-    );
-    final params = requests.single.queryParameters;
-    expect(params['user_id'], 'eq.member-id');
-    expect(params.containsKey('status'), isFalse);
-    expect(params.containsKey('season_id'), isFalse);
-    expect(
-      params['select'],
-      contains('reviewer:users!task_logs_approved_by_fkey(name)'),
-    );
-    expect(params['order'], startsWith('requested_at.desc'));
-    expect(params['order'], contains(',id.desc'));
-    expect(page.entries.length, 20);
-    expect(page.hasMore, isTrue);
-    expect(page.entries.first.reviewerName, 'Luis');
-    expect(page.entries.first.isSeasonClosed, isTrue);
-    expect(page.entries.first.awardedPoints, 8);
-  });
+  test(
+    'Activity queries the current user with archived task and reviewer labels',
+    () async {
+      final page = await repository.loadPage(
+        userId: 'member-id',
+        filter: ActivityFilter.all,
+        offset: 0,
+        limit: 20,
+      );
+      final params = requests.single.queryParameters;
+      expect(params['user_id'], 'eq.member-id');
+      expect(params.containsKey('status'), isFalse);
+      expect(params.containsKey('season_id'), isFalse);
+      expect(
+        params['select'],
+        contains('task_name_snapshot,reviewer_name_snapshot'),
+      );
+      expect(params['order'], startsWith('requested_at.desc'));
+      expect(params['order'], contains(',id.desc'));
+      expect(page.entries.length, 20);
+      expect(page.hasMore, isTrue);
+      expect(page.entries.first.reviewerName, 'Luis');
+      expect(page.entries.first.isSeasonClosed, isTrue);
+      expect(page.entries.first.awardedPoints, 8);
+    },
+  );
 
   test('Status filters and page ranges are sent to Supabase', () async {
     for (final filter in ActivityFilter.values.where(

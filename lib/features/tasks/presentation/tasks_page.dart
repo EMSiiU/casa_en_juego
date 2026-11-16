@@ -103,6 +103,13 @@ class _TasksPageState extends ConsumerState<TasksPage> {
     final user = ref.watch(currentUserProvider).asData?.value;
     final dashboard = ref.watch(tasksDashboardProvider);
     ref.listen(tasksDashboardProvider, (previous, next) {
+      final dashboard = next.asData?.value;
+      if (dashboard != null &&
+          dashboard.season == null &&
+          previous?.value?.season != null &&
+          user?.isHouseholdMember == true) {
+        ref.invalidate(currentUserProvider);
+      }
       final status = next.asData?.value.submissionStatus;
       if (status == null ||
           identical(status, previous?.asData?.value.submissionStatus)) {
@@ -174,15 +181,12 @@ class _TasksPageState extends ConsumerState<TasksPage> {
                         ? _StatusCard(
                             icon: Icons.event_busy_outlined,
                             title: 'No hay un ciclo activo',
-                            message: user?.isAdmin == true
-                                ? 'Crea el siguiente ciclo desde Administración.'
-                                : 'El administrador debe iniciar una temporada para que puedas registrar tareas.',
-                            action: user?.isAdmin == true
-                                ? FilledButton(
-                                    onPressed: () => context.pushNamed('admin'),
-                                    child: const Text('Ir a Administración'),
-                                  )
-                                : null,
+                            message: 'Si el ciclo terminó, actualiza tu membresía para volver a Perfil.',
+                            action: FilledButton(
+                              onPressed: () =>
+                                  ref.invalidate(currentUserProvider),
+                              child: const Text('Actualizar membresía'),
+                            ),
                           )
                         : _buildDashboard(data, user?.id ?? ''),
                   ),

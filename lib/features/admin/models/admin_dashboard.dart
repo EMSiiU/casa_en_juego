@@ -1,4 +1,5 @@
 import '../../../core/constants/task_log_status.dart';
+import '../../tasks/models/household_task.dart';
 import 'admin_season.dart';
 
 class AdminLog {
@@ -12,7 +13,7 @@ class AdminLog {
   factory AdminLog.fromJson(Map<String, dynamic> json) => AdminLog(
     id: json['id'] as String,
     userId: json['user_id'] as String,
-    userName: (json['requester'] as Map<String, dynamic>)['name'] as String,
+    userName: json['requester_name_snapshot'] as String,
     status: TaskLogStatus.values.byName(json['status'] as String),
     points: json['points_snapshot'] as int,
   );
@@ -37,10 +38,15 @@ class SeasonResult {
 }
 
 class SeasonSummary {
-  SeasonSummary({required this.season, required List<AdminLog> logs})
-    : logs = List.unmodifiable(logs);
+  SeasonSummary({
+    required this.season,
+    required List<AdminLog> logs,
+    List<HouseholdTask> archivedCatalog = const [],
+  }) : logs = List.unmodifiable(logs),
+       archivedCatalog = List.unmodifiable(archivedCatalog);
   final AdminSeason season;
   final List<AdminLog> logs;
+  final List<HouseholdTask> archivedCatalog;
   int get approvedPoints => logs
       .where((log) => log.status == TaskLogStatus.approved)
       .fold(0, (total, log) => total + log.points);
@@ -79,7 +85,6 @@ class SeasonSummary {
 }
 
 class AdminDashboard {
-  const AdminDashboard({this.active, this.latestClosed});
+  const AdminDashboard({this.active});
   final SeasonSummary? active;
-  final SeasonSummary? latestClosed;
 }

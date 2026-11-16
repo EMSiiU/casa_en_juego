@@ -74,13 +74,25 @@ class FirebasePushGateway implements PushGateway {
   Future<void> deleteToken() => _messaging.unregister();
   @override
   Stream<String> get tokenChanges => _messaging.onRegistered;
-  Stream<PushNotice> _notices(Stream<RemoteMessage> messages) => messages
-      .map((message) => PushNotice.fromData(message.data))
+  Stream<PushNotice> _notices(
+    Stream<RemoteMessage> messages, {
+    bool foreground = false,
+  }) => messages
+      .map(
+        (message) => foreground
+            ? PushNotice.fromForeground(
+                message.data,
+                messageId: message.messageId,
+                title: message.notification?.title,
+                body: message.notification?.body,
+              )
+            : PushNotice.fromData(message.data),
+      )
       .where((notice) => notice != null)
       .cast<PushNotice>();
   @override
   Stream<PushNotice> get foregroundNotices =>
-      _notices(FirebaseMessaging.onMessage);
+      _notices(FirebaseMessaging.onMessage, foreground: true);
   @override
   Stream<PushNotice> get openedNotices =>
       _notices(FirebaseMessaging.onMessageOpenedApp);

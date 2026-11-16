@@ -13,6 +13,7 @@ import '../../features/reviews/presentation/reviews_page.dart';
 import '../../features/leaderboard/presentation/leaderboard_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
 import '../../features/admin/presentation/admin_page.dart';
+import '../../features/admin/presentation/cycle_history_page.dart';
 import '../../features/admin/presentation/task_catalog_page.dart';
 import '../../features/admin/presentation/task_editor_page.dart';
 
@@ -27,10 +28,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final path = state.uri.path;
       final isEmailPage =
           path == '/login' || path == '/registro' || path == '/recuperar';
-      // Mantiene la pantalla inicial de Administración al recargar su perfil.
-      if (path == '/admin' &&
+      // Mantiene Perfil o Administración al recargar una identidad conocida.
+      if ((path == '/admin' || path == '/profile') &&
           user.isLoading &&
-          user.value?.isHouseholdMember == false &&
+          user.value != null &&
           !user.hasError) {
         return null;
       }
@@ -42,7 +43,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return isEmailPage ? null : '/login';
       }
       if (user.asData?.value?.isHouseholdMember == false) {
-        return path == '/profile' || path == '/admin' ? null : '/profile';
+        final isAccountPage =
+            path == '/profile' ||
+            path == '/admin' ||
+            path == '/tasks/activity' ||
+            path == '/profile/ciclos' ||
+            path.startsWith('/profile/ciclos/');
+        return isAccountPage ? null : '/profile';
       }
       if ((path == '/admin' || path.startsWith('/admin/')) &&
           user.asData?.value?.isAdmin != true) {
@@ -83,6 +90,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/profile',
         name: 'profile',
         builder: (context, state) => const ProfilePage(),
+        routes: [
+          GoRoute(
+            path: 'ciclos',
+            name: 'cycleHistory',
+            builder: (context, state) => const CycleHistoryPage(),
+            routes: [
+              GoRoute(
+                path: ':cycleId',
+                name: 'closedCycle',
+                builder: (context, state) =>
+                    CycleHistoryPage(cycleId: state.pathParameters['cycleId']!),
+              ),
+            ],
+          ),
+        ],
       ),
       GoRoute(
         path: '/leaderboard',

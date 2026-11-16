@@ -116,6 +116,38 @@ Future<void> togglePreference(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('Joining by code opens Tasks with member permissions', (
+    tester,
+  ) async {
+    const personal = AppUser(
+      id: 'member-id',
+      name: 'Ana',
+      email: 'ana@familia.es',
+      role: UserRole.sibling,
+      notificationsEnabled: false,
+      isHouseholdMember: false,
+    );
+    final auth = FakeAuthRepository()..user = personal;
+    final repository = FakeProfileRepository()..user = personal;
+    String? received;
+    repository.onJoinCycle = (code) async {
+      received = code;
+      auth.user = repository.user = testUser;
+    };
+    final container = await startProfile(tester, repository, auth: auth);
+    await tester.ensureVisible(find.text('Unirme con código'));
+    await tester.tap(find.text('Unirme con código'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField), '1234-abcd-5678');
+    await tester.tap(find.text('Unirme'));
+    await tester.pumpAndSettle();
+    expect(received, '1234-abcd-5678');
+    expect(find.text('¡Hola, Ana!'), findsOneWidget);
+    final user = container.read(currentUserProvider).asData?.value;
+    expect(user?.isHouseholdMember, isTrue);
+    expect(user?.isAdmin, isFalse);
+  });
+
   testWidgets(
     'An account without a cycle can create one and open its admin panel',
     (tester) async {

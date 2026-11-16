@@ -82,6 +82,17 @@ void main() {
     expect(reminder!.route, '/tasks');
     expect(reminder.message, contains('Hoy todavía'));
   });
+  test('An incomplete private payload cannot become a general notice', () {
+    expect(
+      PushNotice.fromForeground(
+        {'recipient_id': 'other-account'},
+        messageId: 'incomplete',
+        title: 'Private title',
+        body: null,
+      ),
+      isNull,
+    );
+  });
   test(
     'Disabled preference never requests permission or registers a device',
     () async {
@@ -203,6 +214,31 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byType(SnackBar), findsNothing);
+    },
+  );
+  testWidgets(
+    'A Console message is shown without a private navigation action',
+    (tester) async {
+      final container = await start(tester);
+      final announcement = PushNotice.fromForeground(
+        {},
+        messageId: 'console-test',
+        title: 'Prueba FCM',
+        body: 'Mensaje general',
+      );
+      gateway.foreground.add(announcement!);
+      await tester.pumpAndSettle();
+      expect(find.text('Prueba FCM\nMensaje general'), findsOneWidget);
+      expect(find.text('Ver'), findsNothing);
+      expect(
+        container
+            .read(appRouterProvider)
+            .routeInformationProvider
+            .value
+            .uri
+            .path,
+        '/tasks',
+      );
     },
   );
   testWidgets('Opening a notice navigates to the appropriate protected page', (

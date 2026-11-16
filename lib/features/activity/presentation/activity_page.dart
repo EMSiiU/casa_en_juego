@@ -223,9 +223,9 @@ class _ActivityPageState extends ConsumerState<ActivityPage> {
           ),
         ),
       ),
-      bottomNavigationBar: AppNavigationBar(
-        selectedIndex: widget.fromProfile ? 3 : 0,
-      ),
+      bottomNavigationBar: user?.isHouseholdMember != true
+          ? null
+          : AppNavigationBar(selectedIndex: widget.fromProfile ? 3 : 0),
     );
   }
 

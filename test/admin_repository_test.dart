@@ -27,22 +27,44 @@ void main() {
       requests.add((method: request.method, uri: request.uri, body: values));
       request.response.headers.contentType = ContentType.json;
       Object? body;
-      if (request.method != 'GET') {
+      if (request.uri.path.endsWith('/rpc/get_closed_cycle_catalog')) {
+        body = [
+          {
+            'id': 'archived-task',
+            'name': 'Barrer de nuevo',
+            'points': 7,
+            'icon_name': 'broom',
+            'is_active': false,
+            'is_daily_limited': true,
+          },
+        ];
+      } else if (request.method != 'GET') {
         body = empty ? null : {'id': 'item-id'};
       } else {
         final params = request.uri.queryParameters;
         final offset = int.tryParse(params['offset'] ?? '0') ?? 0;
         switch (request.uri.path.split('/').last) {
           case 'seasons':
-            body = params['status'] == 'eq.closed'
-                ? null
-                : {
-                    'id': 'season-id',
-                    'name': 'Octubre 2026',
-                    'start_date': '2026-10-01T00:00:00Z',
-                    'end_date': null,
-                    'status': 'active',
-                  };
+            if (params['status'] == 'eq.closed') {
+              final closed = {
+                'id': 'closed-id',
+                'name': 'Septiembre 2026',
+                'start_date': '2026-09-01T00:00:00Z',
+                'end_date': '2026-09-30T00:00:00Z',
+                'status': 'closed',
+              };
+              body = params.containsKey('id')
+                  ? (empty ? null : closed)
+                  : [closed];
+            } else {
+              body = {
+                'id': 'season-id',
+                'name': 'Octubre 2026',
+                'start_date': '2026-10-01T00:00:00Z',
+                'end_date': null,
+                'status': 'active',
+              };
+            }
           case 'task_logs':
             body = List.generate(
               offset == 0 ? 500 : 1,
@@ -51,7 +73,7 @@ void main() {
                 'user_id': 'member-id',
                 'status': 'approved',
                 'points_snapshot': 3,
-                'requester': {'name': 'Ana'},
+                'requester_name_snapshot': 'Ana',
               },
             );
           case 'tasks':
@@ -131,26 +153,30 @@ void main() {
   });
 
   test(
-    'Closing changes the status; starting sends the name and calendar date',
+    'Closed cycle results load archived tasks through the cycle RPC',
     () async {
-      await repository.closeSeason('season-id');
-      expect(requests.single.body, {'status': 'closed'});
-      expect(requests.single.uri.queryParameters['id'], 'eq.season-id');
-      expect(requests.single.uri.queryParameters['status'], 'eq.active');
-      await repository.startSeason(
-        ' Noviembre 2026 ',
-        plannedEndDate: DateTime(2026, 11, 22),
+      expect((await repository.loadClosedCycles()).single.id, 'closed-id');
+      final summary = await repository.loadClosedCycle('closed-id');
+      expect(summary.season.name, 'Septiembre 2026');
+      expect(summary.archivedCatalog.single.name, 'Barrer de nuevo');
+      expect(summary.archivedCatalog.single.isActive, isFalse);
+      expect(summary.archivedCatalog.single.isDailyLimited, isTrue);
+      expect(summary.results.single.points, 1503);
+      final rpc = requests.singleWhere(
+        (request) => request.uri.path.endsWith('/rpc/get_closed_cycle_catalog'),
       );
-      expect(requests.last.body, {
-        'name': 'Noviembre 2026',
-        'planned_end_date': '2026-11-22',
-      });
-      expect(
-        requests.every((request) => request.uri.path.endsWith('seasons')),
-        isTrue,
-      );
+      expect(rpc.body, {'p_season_id': 'closed-id'});
+      expect(rpc.uri.queryParameters['order'], startsWith('name.'));
     },
   );
+
+  test('Closing changes only the status of an active cycle', () async {
+    await repository.closeSeason('season-id');
+    expect(requests.single.body, {'status': 'closed'});
+    expect(requests.single.uri.queryParameters['id'], 'eq.season-id');
+    expect(requests.single.uri.queryParameters['status'], 'eq.active');
+    expect(requests.single.uri.path.endsWith('seasons'), isTrue);
+  });
 
   test('Zero-row updates are explicit conflicts', () async {
     empty = true;

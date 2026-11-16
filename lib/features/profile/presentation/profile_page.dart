@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_mode_provider.dart';
 import '../../auth/presentation/widgets/account_avatar.dart';
 import '../../auth/models/auth_failure.dart';
+import '../../auth/models/app_user.dart';
 import '../../auth/providers/account_photo_providers.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../models/profile_failure.dart';
@@ -241,6 +242,77 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     }
   }
 
+  Future<void> _joinCycle(String accountId) async {
+    final key = GlobalKey<FormState>();
+    var code = '';
+    final entered = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unirme con código'),
+        scrollable: true,
+        content: Form(
+          key: key,
+          child: TextFormField(
+            autofocus: true,
+            autocorrect: false,
+            textCapitalization: TextCapitalization.characters,
+            decoration: const InputDecoration(
+              labelText: 'Código de invitación',
+            ),
+            onChanged: (value) => code = value.trim(),
+            validator: (_) => code.isEmpty ? 'Introduce el código.' : null,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (key.currentState!.validate()) Navigator.of(context).pop(code);
+            },
+            child: const Text('Unirme'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted ||
+        entered == null ||
+        ref.read(currentUserProvider).asData?.value?.id != accountId) {
+      return;
+    }
+    await ref.read(profileProvider.notifier).joinCycle(entered);
+    if (!mounted) return;
+    try {
+      final user = await ref.read(currentUserProvider.future);
+      if (mounted && user?.id == accountId && user?.isHouseholdMember == true) {
+        context.goNamed('tasks');
+      }
+    } catch (_) {
+      // El router muestra el error de sesión.
+    }
+  }
+
+  Future<void> _openAdministration(AppUser profileUser) async {
+    var session = ref.read(currentUserProvider).asData?.value;
+    if (session == null || session.id != profileUser.id) return;
+    if (session.isHouseholdMember != profileUser.isHouseholdMember ||
+        session.role != profileUser.role) {
+      try {
+        final refreshed = await ref.refresh(currentUserProvider.future);
+        if (refreshed == null || refreshed.id != profileUser.id) return;
+        session = refreshed;
+      } catch (_) {
+        // El router muestra el error de sesión.
+        return;
+      }
+    }
+    if (mounted && (session.isAdmin || !session.isHouseholdMember)) {
+      context.pushNamed('admin');
+    }
+  }
+
   Widget _buildProfile(
     ProfileState data,
     bool isSigningOut,
@@ -339,41 +411,57 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                     : 'Aún no tienes un ciclo',
               ),
               trailing: const Icon(Icons.chevron_right),
-              onTap: canEdit ? () => context.pushNamed('admin') : null,
+              onTap: canEdit ? () => _openAdministration(user) : null,
             ),
           ),
           const SizedBox(height: 16),
         ],
-        if (user.isHouseholdMember)
-          Card(
-            margin: EdgeInsets.zero,
-            child: Column(
-              children: [
-                ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 4,
-                  ),
-                  leading: Icon(
-                    Icons.history,
-                    color: context.appColors.primary,
-                  ),
-                  title: const Text('Mi actividad'),
-                  subtitle: Text(
-                    'Tus solicitudes y sus resultados',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: context.appColors.onSurfaceVariant,
-                    ),
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: isSigningOut
-                      ? null
-                      : () => context.pushNamed(
-                          'activity',
-                          queryParameters: {'from': 'profile'},
-                        ),
+        if (!user.isHouseholdMember) ...[
+          OutlinedButton.icon(
+            onPressed: canEdit ? () => _joinCycle(user.id) : null,
+            icon: const Icon(Icons.group_add_outlined),
+            label: const Text('Unirme con código'),
+          ),
+          const SizedBox(height: 16),
+        ],
+        Card(
+          margin: EdgeInsets.zero,
+          child: Column(
+            children: [
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
                 ),
+                leading: Icon(Icons.history, color: context.appColors.primary),
+                title: const Text('Mi actividad'),
+                subtitle: Text(
+                  'Tus solicitudes y sus resultados',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: context.appColors.onSurfaceVariant,
+                  ),
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: isSigningOut
+                    ? null
+                    : () => context.pushNamed(
+                        'activity',
+                        queryParameters: {'from': 'profile'},
+                      ),
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.emoji_events_outlined,
+                  color: context.appColors.primary,
+                ),
+                title: const Text('Historial de ciclos'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: isSigningOut
+                    ? null
+                    : () => context.pushNamed('cycleHistory'),
+              ),
+              if (user.isHouseholdMember) ...[
                 SwitchListTile.adaptive(
                   secondary: Icon(
                     Icons.notifications_none,
@@ -398,8 +486,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 ),
                 NotificationStatusTile(user: user),
               ],
-            ),
+            ],
           ),
+        ),
         if (data.errorMessage != null) ...[
           const SizedBox(height: 12),
           Semantics(

@@ -18,6 +18,10 @@ class FakeProfileRepository implements ProfileRepository {
   String? savedUserId;
   String? savedName;
   Future<void> Function(String, DateTime)? onCreateCycle;
+  Future<void> Function(String)? onJoinCycle;
+
+  @override
+  Future<void> joinCycle(String code) async => await onJoinCycle!(code);
 
   @override
   Future<void> createFirstCycle({

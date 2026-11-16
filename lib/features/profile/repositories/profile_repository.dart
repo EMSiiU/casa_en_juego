@@ -6,6 +6,7 @@ import '../models/profile_failure.dart';
 abstract interface class ProfileRepository {
   Future<AppUser> loadProfile(String userId);
   Future<String> rename(String name);
+  Future<void> joinCycle(String code);
   Future<void> createFirstCycle({
     required String name,
     required DateTime plannedEndDate,
@@ -24,6 +25,11 @@ class SupabaseProfileRepository implements ProfileRepository {
   @override
   Future<String> rename(String name) async =>
       await _client.rpc<String>('rename_my_profile', params: {'p_name': name});
+
+  @override
+  Future<void> joinCycle(String code) async {
+    await _client.rpc<String>('join_cycle_by_code', params: {'p_code': code});
+  }
 
   @override
   Future<void> createFirstCycle({

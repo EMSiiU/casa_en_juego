@@ -45,13 +45,14 @@ class FakeAdminRepository implements AdminRepository {
   AdminDashboard dashboard = AdminDashboard(
     active: SeasonSummary(season: adminSeason, logs: adminLogs),
   );
+  final List<SeasonSummary> history = [];
+  void Function()? onClose;
   List<HouseholdTask> tasks = [testTask];
   Object? loadError;
   Object? mutationError;
   Completer<void>? pendingMutation;
   int saveCalls = 0;
   int closeCalls = 0;
-  int startCalls = 0;
   TaskDraft? savedDraft;
 
   @override
@@ -59,6 +60,17 @@ class FakeAdminRepository implements AdminRepository {
     if (loadError != null) throw loadError!;
     return dashboard;
   }
+
+  @override
+  Future<String> loadInviteCode(String seasonId) async => '1234ABCD5678';
+
+  @override
+  Future<List<AdminSeason>> loadClosedCycles() async =>
+      history.map((summary) => summary.season).toList(growable: false);
+
+  @override
+  Future<SeasonSummary> loadClosedCycle(String id) async =>
+      history.firstWhere((summary) => summary.season.id == id);
 
   @override
   Future<List<HouseholdTask>> loadTasks() async => tasks;
@@ -94,8 +106,9 @@ class FakeAdminRepository implements AdminRepository {
     if (current == null || current.season.id != id) {
       throw const AdminFailure('Ciclo no disponible');
     }
-    dashboard = AdminDashboard(
-      latestClosed: SeasonSummary(
+    history.insert(
+      0,
+      SeasonSummary(
         season: AdminSeason(
           id: id,
           name: current.season.name,
@@ -106,29 +119,10 @@ class FakeAdminRepository implements AdminRepository {
           status: AdminSeasonStatus.closed,
         ),
         logs: current.logs,
+        archivedCatalog: tasks,
       ),
     );
-  }
-
-  @override
-  Future<void> startSeason(
-    String name, {
-    required DateTime plannedEndDate,
-  }) async {
-    startCalls++;
-    await _wait();
-    dashboard = AdminDashboard(
-      active: SeasonSummary(
-        season: AdminSeason(
-          id: 'new-season',
-          name: name,
-          startDate: DateTime.utc(2026, 11),
-          status: AdminSeasonStatus.active,
-          plannedEndDate: plannedEndDate,
-        ),
-        logs: [],
-      ),
-      latestClosed: dashboard.latestClosed,
-    );
+    dashboard = const AdminDashboard();
+    onClose?.call();
   }
 }

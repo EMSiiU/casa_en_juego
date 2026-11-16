@@ -4,6 +4,7 @@ import 'package:casa_en_juego/core/constants/task_log_status.dart';
 import 'package:casa_en_juego/core/router/app_router.dart';
 import 'package:casa_en_juego/features/admin/models/admin_dashboard.dart';
 import 'package:casa_en_juego/features/admin/models/admin_failure.dart';
+import 'package:casa_en_juego/features/admin/models/admin_season.dart';
 import 'package:casa_en_juego/features/admin/models/task_draft.dart';
 import 'package:casa_en_juego/features/admin/presentation/task_catalog_page.dart';
 import 'package:casa_en_juego/features/admin/providers/admin_providers.dart';
@@ -11,7 +12,6 @@ import 'package:casa_en_juego/features/auth/models/app_user.dart';
 import 'package:casa_en_juego/features/auth/providers/auth_providers.dart';
 import 'package:casa_en_juego/features/profile/providers/profile_providers.dart';
 import 'package:casa_en_juego/features/reviews/providers/reviews_providers.dart';
-import 'package:casa_en_juego/features/tasks/models/tasks_dashboard.dart';
 import 'package:casa_en_juego/features/tasks/providers/tasks_providers.dart';
 import 'package:casa_en_juego/main.dart';
 import 'package:flutter/material.dart';
@@ -24,24 +24,30 @@ import 'support/fake_reviews_repository.dart';
 import 'support/fake_tasks_repository.dart';
 import 'widget_test.dart' show testUser;
 
+const formerAdmin = AppUser(
+  id: 'admin-id',
+  name: 'Carlos',
+  email: 'carlos@familia.es',
+  role: UserRole.sibling,
+  notificationsEnabled: true,
+  isHouseholdMember: false,
+);
+
 Future<ProviderContainer> startAdmin(
   WidgetTester tester,
   FakeAdminRepository repository, {
   AppUser user = adminUser,
   String location = '/admin',
-  FakeTasksRepository? tasks,
+  FakeProfileRepository? profile,
 }) async {
+  final profiles = profile ?? (FakeProfileRepository()..user = user);
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        currentUserProvider.overrideWith((ref) => Stream.value(user)),
+        currentUserProvider.overrideWith((ref) => Stream.value(profiles.user)),
         adminRepositoryProvider.overrideWithValue(repository),
-        profileRepositoryProvider.overrideWithValue(
-          FakeProfileRepository()..user = user,
-        ),
-        tasksRepositoryProvider.overrideWithValue(
-          tasks ?? FakeTasksRepository(),
-        ),
+        profileRepositoryProvider.overrideWithValue(profiles),
+        tasksRepositoryProvider.overrideWithValue(FakeTasksRepository()),
         reviewsRepositoryProvider.overrideWithValue(FakeReviewsRepository()),
       ],
       child: const CasaEnJuegoApp(),
@@ -179,9 +185,11 @@ void main() {
     await startAdmin(tester, FakeAdminRepository(), location: '/profile');
     await tapVisible(tester, 'Cuidar del equipo');
     expect(find.text('TEMPORADA ACTUAL · ACTIVA'), findsOneWidget);
+    expect(find.text('1234ABCD5678'), findsOneWidget);
+    expect(find.byTooltip('Copiar código'), findsOneWidget);
     expect(find.text('8'), findsOneWidget);
   });
-  testWidgets('An admin can open the closed cycle results from Tasks', (
+  testWidgets('A former participant can open closed results from Profile', (
     tester,
   ) async {
     final repository = FakeAdminRepository();
@@ -189,13 +197,15 @@ void main() {
     await startAdmin(
       tester,
       repository,
-      location: '/tasks',
-      tasks: FakeTasksRepository()
-        ..dashboard = TasksDashboard(season: null, tasks: [], logs: []),
+      user: formerAdmin,
+      location: '/profile',
     );
-    await tapVisible(tester, 'Ir a Administración');
+    await tapVisible(tester, 'Historial de ciclos');
+    await tapVisible(tester, 'Octubre 2026');
     expect(find.text('Ganador del ciclo'), findsOneWidget);
-    expect(find.text('Crear siguiente ciclo'), findsOneWidget);
+    expect(find.text('8 pts'), findsOneWidget);
+    expect(find.text('Catálogo del ciclo'), findsOneWidget);
+    expect(find.text('Barrer el cuarto'), findsOneWidget);
   });
   testWidgets(
     'New tasks validate fields and appear in the catalog after saving',
@@ -237,7 +247,24 @@ void main() {
     'Closing requires confirmation and preserves results before a new season starts at zero',
     (tester) async {
       final repository = FakeAdminRepository();
-      await startAdmin(tester, repository);
+      final profile = FakeProfileRepository()..user = adminUser;
+      repository.onClose = () => profile.user = formerAdmin;
+      profile.onCreateCycle = (name, date) async {
+        profile.user = adminUser;
+        repository.dashboard = AdminDashboard(
+          active: SeasonSummary(
+            season: AdminSeason(
+              id: 'fresh-cycle',
+              name: name,
+              startDate: DateTime.now(),
+              plannedEndDate: date,
+              status: AdminSeasonStatus.active,
+            ),
+            logs: const [],
+          ),
+        );
+      };
+      final container = await startAdmin(tester, repository, profile: profile);
       await tapVisible(tester, 'Finalizar ciclo');
       expect(find.text('¿Finalizar Octubre 2026?'), findsOneWidget);
       expect(find.textContaining('Hay 1 solicitud pendiente'), findsOneWidget);
@@ -247,7 +274,11 @@ void main() {
       await tapVisible(tester, 'Finalizar ciclo');
       await tapVisible(tester, 'Finalizar ciclo');
       expect(repository.closeCalls, 1);
-      expect(repository.dashboard.latestClosed!.approvedPoints, 8);
+      expect(repository.history.single.approvedPoints, 8);
+      expect(
+        container.read(currentUserProvider).asData?.value?.isHouseholdMember,
+        isFalse,
+      );
       expect(find.text('Un nuevo comienzo'), findsOneWidget);
       expect(find.text('Ganador del ciclo'), findsOneWidget);
       expect(find.text('8 pts'), findsOneWidget);
@@ -259,24 +290,19 @@ void main() {
       final strings = MaterialLocalizations.of(tester.element(calendar));
       await tapVisible(tester, strings.okButtonLabel);
       await tapVisible(tester, 'Iniciar ciclo');
-      expect(repository.startCalls, 1);
       expect(repository.dashboard.active!.season.plannedEndDate, date);
       expect(repository.dashboard.active!.approvedPoints, 0);
-      expect(repository.dashboard.latestClosed!.approvedPoints, 8);
+      expect(repository.history.single.approvedPoints, 8);
       expect(find.text('Noviembre 2026'), findsOneWidget);
     },
   );
   testWidgets(
-    'A cycle cannot start while one is active; duplicate actions are blocked',
+    'Only closing is available while a cycle is active; duplicate actions are blocked',
     (tester) async {
       final repository = FakeAdminRepository();
       final container = await startAdmin(tester, repository);
-      final premature = await container
-          .read(adminActionProvider.notifier)
-          .startSeason('Next', DateTime(2026, 11, 22));
-      await tester.pumpAndSettle();
-      expect(premature, isFalse);
-      expect(repository.startCalls, 0);
+      expect(find.text('Crear ciclo'), findsNothing);
+      expect(find.text('Crear siguiente ciclo'), findsNothing);
       repository.pendingMutation = Completer<void>();
       await tapVisible(tester, 'Finalizar ciclo');
       final pending = container

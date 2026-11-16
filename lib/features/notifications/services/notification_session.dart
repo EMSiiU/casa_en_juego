@@ -65,7 +65,9 @@ class NotificationSession {
     // Serializa cambios de cuenta, renovación de token y cierre de sesión.
     final next = _work.then((_) async {
       if (_disposed || generation != _generation) return;
-      if (user == null || !user.notificationsEnabled) {
+      if (user == null ||
+          !user.isHouseholdMember ||
+          !user.notificationsEnabled) {
         await _detach();
         _setStatus(PushDeviceStatus.disabled);
         return;

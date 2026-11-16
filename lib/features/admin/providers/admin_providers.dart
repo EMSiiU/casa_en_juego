@@ -12,6 +12,7 @@ import '../../reviews/providers/reviews_providers.dart';
 import '../models/admin_action_state.dart';
 import '../models/admin_dashboard.dart';
 import '../models/admin_failure.dart';
+import '../models/admin_season.dart';
 import '../models/task_draft.dart';
 import '../repositories/admin_repository.dart';
 
@@ -33,6 +34,29 @@ final adminDashboardProvider = FutureProvider.autoDispose<AdminDashboard>((
   _requireAdmin(ref);
   return ref.watch(adminRepositoryProvider).loadDashboard();
 }, retry: (retryCount, error) => null);
+
+final adminInviteCodeProvider = FutureProvider.autoDispose
+    .family<String, String>((ref, seasonId) {
+      _requireAdmin(ref);
+      return ref.watch(adminRepositoryProvider).loadInviteCode(seasonId);
+    }, retry: (retryCount, error) => null);
+
+final closedCyclesProvider = FutureProvider.autoDispose<List<AdminSeason>>((
+  ref,
+) {
+  final user = ref.watch(currentUserProvider).asData?.value;
+  if (user == null) return const [];
+  return ref.watch(adminRepositoryProvider).loadClosedCycles();
+}, retry: (retryCount, error) => null);
+
+final closedCycleProvider = FutureProvider.autoDispose
+    .family<SeasonSummary, String>((ref, id) {
+      final user = ref.watch(currentUserProvider).asData?.value;
+      if (user == null) {
+        throw const AdminFailure('Inicia sesión para consultar el ciclo.');
+      }
+      return ref.watch(adminRepositoryProvider).loadClosedCycle(id);
+    }, retry: (retryCount, error) => null);
 
 final adminTasksProvider = FutureProvider.autoDispose<List<HouseholdTask>>((
   ref,
@@ -71,23 +95,7 @@ class AdminActionController extends Notifier<AdminActionState> {
       throw const AdminFailure('El ciclo ya cambió. Actualiza el panel.');
     }
     await repository.closeSeason(id);
-  });
-  Future<bool> startSeason(String name, DateTime plannedEndDate) => _run((
-    repository,
-  ) async {
-    final nameLength = name.trim().runes.length;
-    if (nameLength < 1 || nameLength > 100) {
-      throw const AdminFailure(
-        'Escribe un nombre de ciclo de 1 a 100 caracteres.',
-      );
-    }
-    final current = ref.read(adminDashboardProvider).asData?.value;
-    if (current == null || current.active != null) {
-      throw const AdminFailure(
-        'Debe finalizar el ciclo activo antes de iniciar otro.',
-      );
-    }
-    await repository.startSeason(name.trim(), plannedEndDate: plannedEndDate);
+    if (ref.mounted) ref.invalidate(closedCyclesProvider);
   });
 
   Future<bool> _run(Future<void> Function(AdminRepository) operation) async {
