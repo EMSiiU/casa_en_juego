@@ -12,8 +12,9 @@ como máximo una membresía activa. Las tareas, resultados e historial se
 conservan al terminar y cada ciclo nuevo empieza con su propio catálogo.
 El maestro aprobó usar Supabase para datos y autenticación, y Firebase para
 avisos. La entrega es el domingo 22 de noviembre de 2026. La pantalla de
-Planes presenta Casa, Familia y Comunidad. La integración de Stripe en
-pruebas y el mapa forman parte del trabajo pendiente.
+Planes presenta Casa, Familia y Comunidad. Familia integra una suscripción
+de prueba de Stripe con formulario nativo en Android. El mapa, Comunidad
+y la gestión de suscripciones dentro de la app forman parte del trabajo pendiente.
 
 ## 2. Arquitectura y tecnologías
 
@@ -38,6 +39,7 @@ flowchart LR
 | Componente | Responsabilidad | Dónde estudiarlo |
 |---|---|---|
 | Flutter y Dart | Pantallas para Android, iOS y web. Los módulos se organizan por funcionalidad. | [lib/main.dart](../lib/main.dart), [pubspec.yaml](../pubspec.yaml) |
+| Stripe y flutter_stripe | PaymentSheet captura la tarjeta en Android y Stripe gestiona la suscripción de prueba. | [Guía de Stripe](stripe_test_setup.md), [family_payment_repository.dart](../lib/features/plans/repositories/family_payment_repository.dart) |
 | Riverpod | Estado de formularios, sesión, consultas, acciones, reintentos e invalidación de datos. | Carpetas `providers/` de cada módulo y proveedores locales de los formularios |
 | go_router | Navegación, restauración de sesión y protección de páginas administrativas. | [app_router.dart](../lib/core/router/app_router.dart) |
 | Supabase Auth | Sesión con correo y contraseña, Google y GitHub. El nombre editable y la membresía se leen de PostgreSQL. | [auth_repository.dart](../lib/features/auth/repositories/auth_repository.dart) |
@@ -840,9 +842,9 @@ y la lista desplazable
 limitada a 600 píxeles lógicos y la barra inferior. `_PlanCard.build()`
 recibe nombre, precio, beneficios y etiqueta del botón y dibuja cada
 tarjeta con el tema activo. Casa muestra **Plan actual** y las otras
-tarjetas **Probar pago**. Los tres botones están desactivados en este
-minibloque. Los datos son constantes y se renderizan desde el mismo
-archivo.
+tarjetas **Probar pago**. Familia habilita su botón en Android mientras
+no haya una operación en curso. Comunidad conserva el botón desactivado.
+Los datos del catálogo son constantes y se renderizan desde el mismo archivo.
 
 ```mermaid
 flowchart LR
@@ -860,19 +862,84 @@ cinco destinos. Sin ciclo muestra Perfil y Planes, traduce esos dos
 destinos a los índices 3 y 4 y omite la consulta de pendientes de revisión.
 El router mantiene la comprobación de sesión para el acceso directo.
 
-El siguiente minibloque conectará **Probar pago** con Stripe en su entorno
-de pruebas. La integración, la captura nativa de tarjeta y el estado de
-suscripción siguen pendientes. El alcance acordado promociona los
-beneficios de pago y conserva una sola membresía activa por cuenta.
+El alcance acordado promociona los beneficios de pago y conserva una sola
+membresía activa por cuenta. Las suscripciones de prueba se gestionan en Stripe.
 
 Para probar esta etapa, abre Planes desde el celular o Chrome. Comprueba
-las tres tarjetas, los precios, los botones desactivados y el regreso
+las tres tarjetas, los precios y el regreso
 a Perfil. Repite con una cuenta sin ciclo activo y con ambos temas.
 `test/plans_test.dart` cubre esos recorridos a 320 y 1100 píxeles y
 comprueba que una visita sin sesión a `/plans` vuelva al login.
 La verificación del 21 de noviembre terminó con el análisis Dart sin
 hallazgos, 134 pruebas Flutter aprobadas y compilaciones locales de web
 y APK de depuración completadas.
+
+### Pago nativo de Familia con Stripe
+
+`PlansPage` observa `familyPaymentProvider` y muestra los resultados como
+avisos. `FamilyPaymentController.checkout()` bloquea envíos simultáneos,
+mantiene la operación mientras se espera la respuesta y publica el resultado
+solo si la cuenta continúa siendo la misma. `familyPaymentSupportedProvider`
+habilita el botón en Android. La web conserva el catálogo.
+
+`StripeFamilyPaymentRepository.checkout()` invoca la Edge Function
+`create-family-subscription`, configura Stripe con la clave publicable de
+prueba y abre `initPaymentSheet()` / `presentPaymentSheet()`. Los datos de
+tarjeta se capturan mediante el SDK nativo y viajan a Stripe. El repositorio
+distingue pago completado, cancelación de la hoja, suscripción ya activa
+y errores recuperables.
+
+```mermaid
+sequenceDiagram
+    actor U as Usuario Android
+    participant A as Planes y controlador Riverpod
+    participant F as Edge Function
+    participant Auth as Supabase Auth
+    participant S as Stripe pruebas
+    U->>A: Probar pago de Familia
+    A->>F: Solicitud con JWT de la sesión
+    F->>Auth: GET /auth/v1/user
+    Auth-->>F: Usuario con correo confirmado
+    F->>S: Valida precio y busca cliente y suscripción
+    S-->>F: Factura pendiente y client_secret
+    F-->>A: Clave publicable y secreto del pago de esa factura
+    A->>U: Abre PaymentSheet
+    U->>S: Tarjeta ficticia mediante SDK
+    S-->>A: Resultado del pago
+    A->>U: Aviso de resultado
+```
+
+En la función, `createHandler()` valida la sesión en Auth y selecciona
+el precio desde `STRIPE_PRICE_FAMILIA`. Comprueba que sea activo, de pruebas,
+por 3900 centavos MXN y recurrente cada mes. Los secretos que empiecen con
+claves de producción se rechazan. La búsqueda de clientes usa
+`metadata.supabase_user_id`. Los POST incluyen claves de idempotencia y
+la factura de una suscripción incompleta se reutiliza al reabrir el pago.
+Una suscripción activa devuelve ese estado y evita otro intento de alta.
+
+La función usa la API de Stripe `2025-06-30.basil`. Crea la suscripción
+con `payment_behavior=default_incomplete`, guarda el método para sus
+renovaciones y expande `latest_invoice.confirmation_secret`. La respuesta
+contiene la credencial del pago concreto y la clave publicable. Las respuestas
+llevan `Cache-Control: no-store` y los errores omiten detalles privados
+del proveedor.
+
+En Android, `MainActivity` hereda de `FlutterFragmentActivity` y los temas
+de arranque y ejecución heredan de AppCompat, como requiere el SDK.
+La verificación JWT del gateway se desactiva solo para esta función y el
+handler valida explícitamente el JWT contra Supabase Auth.
+
+El primer pago se procesa en el sandbox y Stripe conserva la suscripción
+y sus facturas. La consulta persistente del plan desde la app, el webhook
+y la cancelación desde Casa en Juego quedan para una etapa posterior.
+Los pasos de despliegue, secretos y tarjetas ficticias están en la
+[guía de configuración de Stripe](stripe_test_setup.md).
+
+La verificación local de esta etapa completó el análisis Dart, 135 pruebas
+Flutter, la comprobación de tipos de Deno y cuatro pruebas del handler.
+También se compilaron el APK de depuración y la versión web. La sesión de
+la CLI de Supabase estaba sin configurar, por lo que el despliegue de la
+función y el pago en el dispositivo quedan pendientes en el entorno remoto.
 
 ## 8. Rúbrica del proyecto final
 
@@ -890,7 +957,7 @@ y APK de depuración completadas.
 | Bienvenida | Pantalla inicial aplazada. El [manual de usuario](manual%20de%20usuario.md) explica los flujos disponibles. |
 | Responsividad y widget avanzado | Parcial. Hay límites de ancho y pruebas en pantallas pequeñas. La adaptación a escritorio debe validarse. La gráfica de Ranking es candidata al 10% si el maestro la acepta. |
 | Sensor y mapa nativo | Pendiente. Biometría para confirmar el cierre de ciclo es una propuesta. El propósito y la ubicación del mapa dependen del alcance acordado. |
-| Pagos o suscripciones | Catálogo de tres modalidades implementado con Casa gratis. Stripe elegido para el próximo minibloque. Pendientes el pago o suscripción de prueba y la captura nativa de tarjeta. Los beneficios de los planes de pago se presentan como propuesta. |
+| Pagos o suscripciones | Catálogo de tres modalidades y código de la suscripción Familia con PaymentSheet para Android. Pendientes desplegar la nueva función, la prueba real del sandbox en el RMX3840 y la integración de Comunidad. Los beneficios anunciados se mantienen como propuesta. |
 | Entrega y estabilidad | Parcial. Hay Git, pruebas y documentación. Faltan el reporte final, APK de entrega y ensayo completo. |
 
 ## 9. Cómo ejecutar y probar
@@ -1171,7 +1238,7 @@ automatizado con `supabase db push`.
 
 | Otro archivo en `supabase/` | Responsabilidad |
 |---|---|
-| `config.toml` | Configura `send-task-notifications`. El gateway deja pasar al trabajador y el propio handler valida el secreto compartido. |
+| `config.toml` | Configura los gateways de avisos y suscripción. El trabajador de avisos valida su secreto compartido y `create-family-subscription` valida la sesión con Supabase Auth. |
 | `enable_push_delivery.sql` | Instala el trigger `push_jobs_wake_worker` y la llamada periódica al trabajador. Ambos usan los secretos configurados en Vault. |
 | `enable_inactivity_reminders.sql` | Programa la creación periódica de recordatorios. |
 | `seed_test_season.sql` | Inserción manual anterior al flujo de Administración. Quedó obsoleta con los ciclos independientes. |
@@ -1191,7 +1258,7 @@ automatizado con `supabase db push`.
 | `oauth_sign_in_test.dart`, `password_recovery_test.dart`, `provider_avatar_test.dart` | Acceso con proveedores, recuperación y lectura de metadatos del avatar. |
 | `account_photo_repository_test.dart` | Aislamiento de archivos por cuenta y URL, persistencia al volver a crear la caché, limpieza al faltar el objeto y restauración de sesión sin conexión. |
 | `profile_test.dart`, `profile_repository_test.dart` | Perfil, nombre, tema, foto, permisos, membresía y llamadas a Supabase. |
-| `plans_test.dart` | Acceso a Planes con y sin ciclo, regreso a Perfil, sesión obligatoria, tarjetas en móvil y escritorio y temas claro y oscuro. |
+| `plans_test.dart` | Acceso con y sin ciclo, regreso a Perfil, sesión obligatoria, catálogo en web y Android, temas y resultados del pago con bloqueo de envíos simultáneos. |
 | `admin_test.dart`, `admin_repository_test.dart` | Acceso administrativo, formulario, catálogo, invitación, historial y cierre. |
 | `tasks_test.dart`, `tasks_repository_test.dart`, `task_failure_test.dart`, `daily_task_limits_test.dart` | Vista de tareas, lecturas y envíos, errores y restricciones diarias. |
 | `reviews_test.dart`, `reviews_repository_test.dart` | Bandeja, aprobación y rechazo, filtros y persistencia. |
@@ -1205,7 +1272,12 @@ automatizado con `supabase db push`.
 
 | Archivo | Funciones y responsabilidad |
 |---|---|
-| `lib/features/plans/presentation/plans_page.dart` | `PlansPage.build()` presenta las tres modalidades. `_PlanCard.build()` construye sus tarjetas con los datos constantes y los estilos del tema. |
+| `lib/features/plans/presentation/plans_page.dart` | `PlansPage.build()` presenta las modalidades y escucha resultados del pago. `_PlanCard.build()` construye cada tarjeta y conecta el botón de Familia al controlador. |
+| `lib/features/plans/providers/family_payment_provider.dart` | Expone disponibilidad y repositorio. `FamilyPaymentController.checkout()` administra carga y resultado del pago por sesión. |
+| `lib/features/plans/repositories/family_payment_repository.dart` | `StripeFamilyPaymentRepository.checkout()` solicita la factura, abre PaymentSheet y traduce su resultado a un aviso de la app. |
+| `supabase/functions/create-family-subscription/index.ts` | Carga la configuración de Secrets y monta el servidor Deno. |
+| `supabase/functions/create-family-subscription/handler.ts` | `createHandler()` verifica Auth, entorno y precio. `stripe()` realiza peticiones autenticadas al proveedor y filtra errores. |
+| `supabase/functions/create-family-subscription/handler_test.ts` | Prueba sesiones, precio controlado en el servidor, repetición del intento y errores sin información privada. |
 
 ## 12. Auditoría del código, la base y Git
 

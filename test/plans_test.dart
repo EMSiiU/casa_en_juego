@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:casa_en_juego/core/router/app_router.dart';
 import 'package:casa_en_juego/core/theme/theme_mode_provider.dart';
 import 'package:casa_en_juego/features/auth/models/app_user.dart';
 import 'package:casa_en_juego/features/auth/providers/auth_providers.dart';
 import 'package:casa_en_juego/features/plans/presentation/plans_page.dart';
+import 'package:casa_en_juego/features/plans/providers/family_payment_provider.dart';
+import 'package:casa_en_juego/features/plans/repositories/family_payment_repository.dart';
 import 'package:casa_en_juego/features/profile/providers/profile_providers.dart';
 import 'package:casa_en_juego/features/reviews/providers/reviews_providers.dart';
 import 'package:casa_en_juego/features/tasks/providers/tasks_providers.dart';
@@ -15,6 +19,20 @@ import 'support/fake_profile_repository.dart';
 import 'support/fake_reviews_repository.dart';
 import 'support/fake_tasks_repository.dart';
 import 'widget_test.dart' show FakeAuthRepository, testUser;
+
+class _Payment extends Fake implements FamilyPaymentRepository {
+  int calls = 0;
+  Completer<FamilyPaymentResult>? pending;
+  Object? error;
+  FamilyPaymentResult result = FamilyPaymentResult.completed;
+
+  @override
+  Future<FamilyPaymentResult> checkout() async {
+    calls++;
+    if (error != null) throw error!;
+    return pending != null ? pending!.future : result;
+  }
+}
 
 void main() {
   for (final hasCycle in [true, false]) {
@@ -37,6 +55,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            familyPaymentSupportedProvider.overrideWithValue(false),
             authRepositoryProvider.overrideWithValue(auth),
             profileRepositoryProvider.overrideWithValue(
               FakeProfileRepository()..user = user,
@@ -107,6 +126,55 @@ void main() {
       );
     });
   }
+
+  testWidgets('Family payment prevents double submission and reports results', (
+    tester,
+  ) async {
+    final payment = _Payment()..pending = Completer<FamilyPaymentResult>();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentUserProvider.overrideWith((ref) => Stream.value(testUser)),
+          familyPaymentSupportedProvider.overrideWithValue(true),
+          familyPaymentRepositoryProvider.overrideWithValue(payment),
+          reviewsRepositoryProvider.overrideWithValue(FakeReviewsRepository()),
+        ],
+        child: const MaterialApp(home: PlansPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final family = find.ancestor(
+      of: find.text('Familia'),
+      matching: find.byType(Card),
+    );
+    final button = find.descendant(
+      of: family,
+      matching: find.byType(FilledButton),
+    );
+    await tester.ensureVisible(button);
+    await tester.pumpAndSettle();
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    expect(payment.calls, 1);
+    expect(tester.widget<FilledButton>(button).onPressed, isNull);
+    payment.pending!.complete(FamilyPaymentResult.completed);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Pago de prueba completado'), findsOneWidget);
+    ScaffoldMessenger.of(tester.element(button)).clearSnackBars();
+    await tester.pumpAndSettle();
+    payment.pending = null;
+    payment.result = FamilyPaymentResult.canceled;
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    expect(find.text('Pago cancelado.'), findsOneWidget);
+    ScaffoldMessenger.of(tester.element(button)).clearSnackBars();
+    await tester.pumpAndSettle();
+    payment.error = const FamilyPaymentFailure('Error de pago de prueba');
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    expect(find.text('Error de pago de prueba'), findsOneWidget);
+    expect(tester.widget<FilledButton>(button).onPressed, isNotNull);
+  });
 
   testWidgets('Plans direct links require an authenticated session', (
     tester,

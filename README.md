@@ -7,7 +7,8 @@ fotos de perfil. Firebase entrega avisos móviles y aloja la versión web.
 
 La pantalla **Planes** presenta Casa gratis, Familia a $39 MXN al mes y
 Comunidad a $69 MXN al mes. Los planes de pago anuncian beneficios de
-demostración. La integración con Stripe en pruebas es el siguiente paso.
+demostración. Familia permite abrir el pago nativo de prueba en Android
+después de desplegar la función de Supabase y configurar Stripe.
 
 ## Ejecutar
 
@@ -24,3 +25,4 @@ flutter run
 - [Publicación web en Firebase Hosting](docs/firebase_hosting_setup.md).
 - [Configuración de avisos móviles](docs/push_notifications_setup.md).
 - [Activación de recordatorios](docs/inactivity_reminders_setup.md).
+- [Configuración y prueba de la suscripción Familia con Stripe](docs/stripe_test_setup.md).

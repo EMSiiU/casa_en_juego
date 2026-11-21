@@ -104,9 +104,25 @@ todavía no participas en un ciclo, puedes alternar entre esas dos pantallas.
 | **Familia** | $39 MXN al mes | Propuesta de hasta tres ciclos simultáneos para casa, escuela y actividades familiares. |
 | **Comunidad** | $69 MXN al mes | Propuesta de hasta diez ciclos simultáneos y resúmenes de participación. |
 
-Casa aparece como **Plan actual**. Los botones **Probar pago** de Familia
-y Comunidad están desactivados mientras se prepara la demostración de pago.
-La pantalla presenta los beneficios de pago como propuesta.
+Casa aparece como **Plan actual** y representa las funciones disponibles
+en la app. La pantalla presenta los beneficios de pago como propuesta.
+
+### Probar el pago de Familia en Android
+
+1. Abre **Planes** en el celular y pulsa **Probar pago** en Familia.
+2. Espera a que se abra el formulario de Stripe. Durante la preparación,
+   el botón impide enviar otra solicitud.
+3. Escribe la tarjeta de prueba **4242 4242 4242 4242**, una fecha futura
+   como **12/34** y CVC **123**. Completa los demás campos que solicite.
+4. Confirma el pago. La app muestra **Pago de prueba completado**.
+
+Puedes cerrar el formulario para cancelar el intento. Si vuelves a abrirlo,
+se recupera el pago pendiente. Si ya completaste la suscripción de prueba,
+la app te avisa que está activa. Quien administra el proyecto puede ver
+y cancelar esa suscripción desde el panel de pruebas de Stripe.
+
+En Chrome y Edge se muestra el catálogo. El formulario nativo de esta etapa
+se prueba en Android. Comunidad conserva el botón desactivado.
 
 ## 7. Envía un aviso general desde Firebase Console
 

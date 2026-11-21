@@ -1,0 +1,66 @@
+import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+enum FamilyPaymentResult { completed, canceled, alreadyActive }
+
+class FamilyPaymentFailure implements Exception {
+  const FamilyPaymentFailure(this.message);
+  final String message;
+}
+
+abstract interface class FamilyPaymentRepository {
+  Future<FamilyPaymentResult> checkout();
+}
+
+class StripeFamilyPaymentRepository implements FamilyPaymentRepository {
+  StripeFamilyPaymentRepository(this.client);
+  final SupabaseClient client;
+
+  @override
+  Future<FamilyPaymentResult> checkout() async {
+    try {
+      final response = await client.functions.invoke(
+        'create-family-subscription',
+      );
+      final data = response.data as Map<String, dynamic>;
+      if (data['status'] == 'active') return FamilyPaymentResult.alreadyActive;
+      final key = data['publishableKey'] as String;
+      final secret = data['clientSecret'] as String;
+      if (!key.startsWith('pk_test_') || !secret.startsWith('pi_')) {
+        throw const FamilyPaymentFailure(
+          'El servicio no devolvió una configuración de pago de prueba válida.',
+        );
+      }
+      Stripe.publishableKey = key;
+      await Stripe.instance.applySettings();
+      await Stripe.instance.initPaymentSheet(
+        paymentSheetParameters: SetupPaymentSheetParameters(
+          merchantDisplayName: 'Casa en Juego · Pruebas',
+          paymentIntentClientSecret: secret,
+        ),
+      );
+      await Stripe.instance.presentPaymentSheet();
+      return FamilyPaymentResult.completed;
+    } on StripeException catch (error) {
+      if (error.error.code == FailureCode.Canceled) {
+        return FamilyPaymentResult.canceled;
+      }
+      throw const FamilyPaymentFailure(
+        'No se pudo completar el pago. Revisa la tarjeta de prueba e intenta nuevamente.',
+      );
+    } on FunctionException catch (error) {
+      final details = error.details;
+      throw FamilyPaymentFailure(
+        details is Map && details['error'] is String
+            ? details['error'] as String
+            : 'No pudimos preparar el pago. Revisa que la función esté desplegada y vuelve a iniciar sesión.',
+      );
+    } on FamilyPaymentFailure {
+      rethrow;
+    } catch (_) {
+      throw const FamilyPaymentFailure(
+        'No pudimos abrir el pago de prueba. Revisa tu conexión y vuelve a intentar.',
+      );
+    }
+  }
+}

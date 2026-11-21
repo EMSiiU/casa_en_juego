@@ -1,3 +1,7 @@
 [functions.send-task-notifications]
 # Se verifica x-notification-secret dentro de la función; nunca se acepta la clave pública.
 verify_jwt = false
+
+[functions.create-family-subscription]
+# Valida la sesión con Supabase Auth dentro del handler.
+verify_jwt = false
