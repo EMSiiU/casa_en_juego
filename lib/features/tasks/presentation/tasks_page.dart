@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +16,7 @@ import '../models/task_failure.dart';
 import '../models/task_log.dart';
 import '../models/tasks_dashboard.dart';
 import '../providers/tasks_providers.dart';
+import '../providers/shake_provider.dart';
 import 'widgets/task_icon.dart';
 import 'widgets/task_submission_sheet.dart';
 
@@ -97,10 +99,59 @@ class _TasksPageState extends ConsumerState<TasksPage> {
     if (mounted) ref.invalidate(tasksDashboardProvider);
   }
 
+  Future<void> _suggestTask() async {
+    if (_sheetOpen ||
+        !mounted ||
+        ModalRoute.of(context)?.isCurrent != true ||
+        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      return;
+    }
+    final dashboard = ref.read(tasksDashboardProvider);
+    if (dashboard.isLoading || dashboard.hasError) return;
+    final tasks = dashboard.asData?.value.availableForSuggestion ?? [];
+    if (tasks.isEmpty) return;
+    final task = tasks[Random().nextInt(tasks.length)];
+    _sheetOpen = true;
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Tarea sugerida'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TaskIcon(iconName: task.iconName, size: 48),
+              const SizedBox(height: 12),
+              Text(task.name, style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              const Text('Cuando la termines, regístrala desde la lista.'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Entendido'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      _sheetOpen = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider).asData?.value;
     final dashboard = ref.watch(tasksDashboardProvider);
+    if (ModalRoute.of(context)?.isCurrent == true &&
+        !dashboard.isLoading &&
+        !dashboard.hasError &&
+        dashboard.asData?.value.availableForSuggestion.isNotEmpty == true) {
+      ref.listen(shakeEventsProvider, (previous, next) {
+        if (next.hasValue && next.value != previous?.value) _suggestTask();
+      });
+    }
     ref.listen(tasksDashboardProvider, (previous, next) {
       final dashboard = next.asData?.value;
       if (dashboard != null &&
@@ -179,6 +230,11 @@ class _TasksPageState extends ConsumerState<TasksPage> {
   }
 
   Widget _buildDashboard(TasksDashboard data, String userId) {
+    final shake =
+        ModalRoute.of(context)?.isCurrent == true &&
+            data.availableForSuggestion.isNotEmpty
+        ? ref.watch(shakeEventsProvider)
+        : null;
     final pending = data.pendingFor(userId);
     final points = data.approvedPointsFor(userId);
     final position = data.positionFor(userId);
@@ -280,6 +336,16 @@ class _TasksPageState extends ConsumerState<TasksPage> {
           ],
         ),
         const SizedBox(height: 10),
+        if (data.availableForSuggestion.isNotEmpty) ...[
+          Text(
+            shake?.hasError == true
+                ? 'Agitar no está disponible. Puedes elegir una tarea de la lista.'
+                : 'Agita el celular para recibir una sugerencia.',
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: context.appColors.onSurfaceVariant),
+          ),
+          const SizedBox(height: 12),
+        ],
         if (data.tasks.isEmpty)
           const _StatusCard(
             icon: Icons.cleaning_services_outlined,

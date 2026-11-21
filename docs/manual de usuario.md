@@ -59,6 +59,25 @@ La fecha prevista sirve para organizarse. Para finalizar el ciclo, el administra
 
 Solo las tareas aprobadas suman puntos. Si una tarea está marcada como **Una vez al día**, espera al día siguiente para repetirla si ya quedó pendiente o aprobada. Si la rechazan, puedes volver a registrarla.
 
+### Recibir una sugerencia al agitar el celular
+
+1. En Android, entra a **Tareas** con un ciclo activo.
+2. Si hay tareas disponibles, aparece **Agita el celular para recibir una sugerencia**.
+3. Agita el celular con dos o tres movimientos cortos. Se abre **Tarea sugerida**
+   con una tarea del catálogo que puedas registrar hoy.
+4. Pulsa **Entendido** para cerrar. Cuando hayas realizado esa tarea, búscala
+   en la lista y regístrala como siempre.
+
+Agitar no envía solicitudes ni suma puntos. Puedes ignorar la sugerencia;
+la selección al azar puede repetir una tarea. La función no actúa mientras
+estás en otra pantalla, con un diálogo abierto o con la app en segundo plano.
+Si no hay tareas disponibles para registrar, no se ofrece la función.
+
+Si aparece **Agitar no está disponible**, elige una tarea manualmente. En
+Chrome, Edge e iOS esta función no está habilitada; la demostración del sensor
+se realiza en Android. La primera instalación de esta versión requiere
+reiniciar la app completamente, porque se incorporó un plugin nativo.
+
 ### Revisar la tarea de otra persona
 
 En **Revisiones**, abre la lista de solicitudes, comprueba quién hizo la tarea y pulsa **Aprobar** si se completó o **Rechazar** si hace falta hacerla de nuevo. Tus propias solicitudes las revisa otro miembro.

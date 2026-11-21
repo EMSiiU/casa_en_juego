@@ -17,6 +17,15 @@ class TasksDashboard {
   final List<TaskLog> logs;
   final TaskSubmissionStatus? submissionStatus;
 
+  List<HouseholdTask> get availableForSuggestion => season == null
+      ? []
+      : tasks
+            .where(
+              (task) =>
+                  task.isActive && submissionStatus?.isBlocked(task.id) != true,
+            )
+            .toList();
+
   // Se filtra por ciclo incluso cuando el repositorio ya aplica ese filtro.
   Iterable<TaskLog> get _currentLogs =>
       logs.where((log) => season != null && log.seasonId == season!.id);

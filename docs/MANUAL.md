@@ -23,6 +23,8 @@ flowchart LR
     Router["go_router"] --> UI["Pantallas y formularios Flutter"]
     UI --> State["Proveedores y controladores Riverpod"]
     State --> Repo["Repositorios de cada módulo"]
+    Sensor["Acelerómetro Android · sensors_plus"] --> Shake["shakeEventsProvider · ShakeDetector"]
+    Shake --> UI
     State -->|"Sesión y membresía"| Router
     Repo --> Auth["Supabase Auth · correo y OAuth"]
     Repo --> Storage["Supabase Storage · avatares privados"]
@@ -40,6 +42,7 @@ flowchart LR
 |---|---|---|
 | Flutter y Dart | Pantallas para Android, iOS y web. Los módulos se organizan por funcionalidad. | [lib/main.dart](../lib/main.dart), [pubspec.yaml](../pubspec.yaml) |
 | Stripe y flutter_stripe | PaymentSheet captura la tarjeta en Android y Stripe gestiona la suscripción de prueba. | [Guía de Stripe](stripe_test_setup.md), [family_payment_repository.dart](../lib/features/plans/repositories/family_payment_repository.dart) |
+| sensors_plus 7.1.1 | Lee aceleración sin gravedad en Android; los impulsos generan sugerencias locales de tareas. | `providers/shake_provider.dart`, `services/shake_detector.dart` del módulo Tareas |
 | Riverpod | Estado de formularios, sesión, consultas, acciones, reintentos e invalidación de datos. | Carpetas `providers/` de cada módulo y proveedores locales de los formularios |
 | go_router | Navegación, restauración de sesión y protección de páginas administrativas. | [app_router.dart](../lib/core/router/app_router.dart) |
 | Supabase Auth | Sesión con correo y contraseña, Google y GitHub. El nombre editable y la membresía se leen de PostgreSQL. | [auth_repository.dart](../lib/features/auth/repositories/auth_repository.dart) |
@@ -618,6 +621,82 @@ ejecuta esos scripts con roles de base de datos y comprueba casos permitidos
 y denegados. Incluye la edición del catálogo activo, el cierre, la
 liberación de participantes y el acceso al historial con y sin participación.
 
+### Sensor Android: agitar para sugerir una tarea
+
+Se incorpora `sensors_plus: 7.1.1`. Se conserva Riverpod y no se añade ninguna
+llamada a `setState` ni `ValueNotifier`. El sensor únicamente propone una tarea;
+no llama a Supabase ni modifica solicitudes, puntos o reglas del ciclo.
+El bloque del mapa se mantiene pendiente y separado.
+
+```mermaid
+flowchart TD
+    A["Acelerómetro físico Android"] --> B["userAccelerometerEventStream · 50 ms"]
+    B --> C["ShakeDetector.add · dos impulsos y pausa"]
+    C --> D["shakeEventsProvider · contador de gestos"]
+    D --> E["TasksPage._suggestTask"]
+    F["TasksDashboard.availableForSuggestion"] --> E
+    E --> G["Diálogo Tarea sugerida · selección aleatoria"]
+    G --> H["Entendido · sin escritura"]
+    H --> I["El usuario hace la tarea y la registra por el flujo habitual"]
+```
+
+**Lectura y detección.** `userAccelerationProvider` expone el stream nativo de
+aceleración sin gravedad en m/s², solicitado cada 50 ms. `shakeEventsProvider`
+solo lo abre en Android; web e iOS reciben un estado no disponible. Escucha los
+ejes x, y, z y usa un reloj monótono `Stopwatch`, independiente de la hora civil.
+`ShakeDetector.add()` compara `x² + y² + z²` con `12²`: cada impulso requiere
+superar 12 m/s² y regresar por debajo del umbral antes de otro impulso. Dos
+impulsos separados entre 80 y 600 ms generan un gesto. Se ignoran nuevos gestos
+durante dos segundos. Los valores son un filtro de interacción, no una medición
+de actividad doméstica ni una prueba de que se realizó una tarea.
+
+**Selección y presentación.** `TasksDashboard.availableForSuggestion` devuelve
+solo tareas activas de un ciclo vigente y sin bloqueo diario según el estado
+ya consultado al servidor. `_suggestTask()` vuelve a leer ese tablero, evita
+carga/error y elige con `Random().nextInt(tasks.length)`. Verifica la ruta
+actual, el estado de primer plano y `_sheetOpen`. Este último también protege
+la confirmación de registro, de modo que no se apilan diálogos ni se interrumpe
+un envío. El diálogo incluye el icono, nombre e instrucción para registrar la
+tarea después de hacerla. Cerrar o tocar Entendido no tiene efectos en la BD.
+
+**Ciclo de vida.** La pantalla solo observa el provider si es la ruta actual,
+el tablero está disponible y hay candidatos. `autoDispose` cancela el stream
+al dejar de observarlo. El provider usa `AppLifecycleListener` para detener la
+suscripción al perder el primer plano y reabrirla con un detector nuevo al
+volver; se liberan listener, stream y controlador al descartarlo. No mantiene
+un servicio de sensores en segundo plano ni guarda las lecturas.
+
+**Falta de soporte.** Los errores del plugin o de la plataforma se convierten
+en `AsyncError`, sin reintentos automáticos continuos. La pantalla muestra
+«Agitar no está disponible. Puedes elegir una tarea de la lista». El registro
+manual permanece operativo. Si todas las tareas están bloqueadas, el ciclo
+terminó o el catálogo está vacío, no se abre el sensor ni se ofrece una
+sugerencia. Android es el alcance validable de esta etapa; iOS no inicia la
+lectura y no se afirma una prueba realizada en esa plataforma.
+
+**Cómo probar el dispositivo real.** Después de `flutter pub get`, detén y
+vuelve a ejecutar `flutter run` en el RMX3840 o instala el APK actualizado.
+Hot reload no registra un plugin nativo nuevo. En Tareas, con un ciclo activo y
+una tarea disponible, agita dos o tres veces y comprueba el diálogo. Ciérralo
+y verifica que no aparezcan nuevas solicitudes ni puntos. Repite con una tarea
+limitada ya enviada, con un formulario abierto y tras volver del segundo plano.
+En un emulador Android puede simularse aceleración mediante sus controles de
+sensores; Chrome no reemplaza la comprobación del acelerómetro del celular.
+
+`test/shake_suggestion_test.dart` cubre reposo y movimiento insuficiente,
+impulsos separados, pausa entre gestos, filtrado del catálogo, sugerencia sin
+registro, ausencia de diálogos apilados, registro manual ante fallo y
+cancelación/reanudación de la lectura al cambiar el estado de la aplicación.
+La prueba física del RMX3840 queda pendiente del responsable; las lecturas de
+las pruebas automatizadas se sustituyen por streams controlados.
+
+Verificación local de esta etapa: 147 pruebas Flutter aprobadas, análisis Dart
+sin hallazgos, APK de depuración compilado con el plugin nativo y compilación
+web completada. La integración
+no requiere nuevas tablas, secretos, migraciones ni despliegues de Supabase.
+
+Referencia: [sensors_plus](https://pub.dev/packages/sensors_plus).
+
 ## 5. Avisos móviles
 
 1. `FirebasePushGateway` solicita permisos, registra un identificador de
@@ -1063,7 +1142,8 @@ del secreto y del despliegue en el proyecto del responsable.
 | Tipografía y tema dinámico | Implementados. DM Sans viene incluida con la app y Perfil permite cambiar y recordar el modo claro u oscuro. |
 | Bienvenida | Pantalla inicial aplazada. El [manual de usuario](manual%20de%20usuario.md) explica los flujos disponibles. |
 | Responsividad y widget avanzado | Parcial. Hay límites de ancho y pruebas en pantallas pequeñas. La adaptación a escritorio debe validarse. La gráfica de Ranking es candidata al 10% si el maestro la acepta. |
-| Sensor y mapa nativo | Pendiente. Biometría para confirmar el cierre de ciclo es una propuesta. El propósito y la ubicación del mapa dependen del alcance acordado. |
+| Sensor nativo | Implementado: acelerómetro Android para sugerir tareas al agitar, con filtros, manejo de errores y ciclo de vida. Falta comprobar el gesto en el RMX3840. Biometría no forma parte del alcance elegido. |
+| Mapa nativo | Pendiente; se trabajará como bloque independiente del sensor. |
 | Pagos o suscripciones | Catálogo de tres modalidades y suscripciones Familia y Comunidad con PaymentSheet para Android. El responsable confirmó Familia y su consulta de plan en el celular. Comunidad comparte ahora el flujo nativo; faltan configurar su precio en Supabase, desplegar los dos archivos actualizados y comprobar su pago en el teléfono. Los beneficios anunciados se mantienen como propuesta. |
 | Entrega y estabilidad | Parcial. Hay Git, pruebas y documentación. Faltan el reporte final, APK de entrega y ensayo completo. |
 
@@ -1252,10 +1332,12 @@ Rutas relativas a `lib/features/tasks/`.
 | `models/task_log.dart` | Datos de una solicitud registrada, incluido su estado y los puntos históricos. |
 | `models/task_failure.dart` | `messageFor()` traduce fallos de consulta y registro, incluidos los límites diarios. |
 | `models/task_submission_status.dart` | Lleva la información de tareas limitadas; `isBlocked()` informa si puede enviarse otra solicitud. |
-| `models/tasks_dashboard.dart` | `approvedPointsFor()`, `pendingFor()` y `positionFor()` calculan las métricas del ciclo visible. |
+| `models/tasks_dashboard.dart` | `approvedPointsFor()`, `pendingFor()` y `positionFor()` calculan las métricas del ciclo visible. `availableForSuggestion` filtra tareas activas no bloqueadas del ciclo vigente. |
 | `repositories/tasks_repository.dart` | `loadDashboard()` obtiene ciclo, catálogo y solicitudes; `submitTask()` crea una solicitud pendiente. |
 | `providers/tasks_providers.dart` | `tasksDashboardProvider` lee los datos. `TaskSubmissionController.submit()` evita envíos repetidos y refresca los datos relacionados. |
-| `presentation/tasks_page.dart` | Vista de tareas disponibles, avance, datos de la cuenta y acceso a Mi actividad. |
+| `presentation/tasks_page.dart` | Vista de tareas disponibles, avance, datos de la cuenta y acceso a Mi actividad. `_suggestTask()` muestra una sugerencia al agitar sin registrar trabajo; `_confirmTask()` mantiene la confirmación manual. |
+| `providers/shake_provider.dart` | `userAccelerationProvider` expone lecturas nativas. `shakeEventsProvider` transforma impulsos en gestos y cancela/reanuda el sensor según el ciclo de vida; libera recursos con `autoDispose`. |
+| `services/shake_detector.dart` | `ShakeDetector.add()` aplica umbral, intervalo entre impulsos y pausa entre gestos. Es Dart puro y admite pruebas sin teléfono. |
 | `presentation/widgets/task_icon.dart` | Traduce el nombre del icono a un símbolo de Flutter; `_SneakerPainter.paint()` dibuja el de tenis. |
 | `presentation/widgets/task_submission_sheet.dart` | Presenta la confirmación de registro y ejecuta la acción del proveedor. |
 

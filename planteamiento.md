@@ -24,6 +24,7 @@ la versión web. La configuración de iOS requiere validación en esa plataforma
 * **Gráficos:** Paquete `fl_chart` para visualización de progreso en barra horizontal.
 * **Estado y navegación:** Riverpod y `go_router`.
 * **Perfil:** Fotos privadas en Supabase Storage y caché de imágenes en el celular.
+* **Sensor:** Acelerómetro con `sensors_plus` en Android. Agitar el celular en Tareas sugiere una tarea activa disponible para esa cuenta; no registra solicitudes ni suma puntos.
 * **Planes:** Catálogo local de modalidades y suscripciones Familia y Comunidad en pruebas con Stripe PaymentSheet en Android. Supabase Edge Functions prepara el pago.
 
 ## 3. Modelo de Datos (Esquema Relacional - Supabase)
@@ -86,6 +87,7 @@ migraciones, incluidos los ámbitos y archivos históricos de los ciclos.
    * Inicialmente se limitan barrer, lavar/limpiar baños, tender/hacer la cama y limpiar/ordenar mis cosas cuando existan en el catálogo. Las demás tareas son repetibles; administración puede cambiar la frecuencia.
    * El catálogo incorpora iconos de cama, estante, tenis, ropa, cosas de hermanos y cosas personales.
    * Tareas, Ranking y Revisiones comparten un menú de cuenta para cerrar sesión; Perfil conserva su acceso propio.
+   * **Sugerencia al agitar (Android):** Dos impulsos del acelerómetro sugieren una tarea al azar del catálogo activo que no esté bloqueada ese día. La sugerencia se puede cerrar; el usuario realiza la tarea y luego la registra normalmente. El sensor se detiene en segundo plano y al dejar la pantalla. La falta de soporte no afecta al registro manual. El mapa queda como bloque independiente.
 3. **Sistema de Revisiones Separado:**
    * **Mis solicitudes ("Mi actividad"):** El usuario puede ver el estado de sus propias tareas (Pendientes, Aprobadas, Rechazadas).
    * **Solicitudes de otros ("Revisiones"):** Los usuarios ven y deciden (Aprobar/Rechazar) sobre las tareas de los demás.

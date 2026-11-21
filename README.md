@@ -4,6 +4,8 @@ Aplicación Flutter para organizar tareas domésticas por ciclos. Cada persona
 registra su trabajo y otro miembro lo revisa. Las tareas aprobadas suman
 puntos en la clasificación del ciclo. Supabase gestiona datos, acceso y
 fotos de perfil. Firebase entrega avisos móviles y aloja la versión web.
+En Android, agitar el celular en Tareas sugiere una tarea disponible mediante
+el acelerómetro; el registro sigue siendo manual.
 
 La pantalla **Planes** presenta Casa gratis, Familia a $39 MXN al mes y
 Comunidad a $69 MXN al mes. Los planes de pago anuncian beneficios de

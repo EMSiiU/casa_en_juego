@@ -57,3 +57,6 @@ supabase/.temp/
 # Caché local de Firebase Hosting.
 .firebase/
 firebase-debug.log*
+
+# Informe local de revisión; no forma parte de la entrega.
+/docs/auditoria_requerimientos_2026-11-21.txt
