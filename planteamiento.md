@@ -24,7 +24,7 @@ la versión web. La configuración de iOS requiere validación en esa plataforma
 * **Gráficos:** Paquete `fl_chart` para visualización de progreso en barra horizontal.
 * **Estado y navegación:** Riverpod y `go_router`.
 * **Perfil:** Fotos privadas en Supabase Storage y caché de imágenes en el celular.
-* **Planes:** Catálogo local de modalidades y suscripción Familia en pruebas con Stripe PaymentSheet en Android. Supabase Edge Functions prepara el pago.
+* **Planes:** Catálogo local de modalidades y suscripciones Familia y Comunidad en pruebas con Stripe PaymentSheet en Android. Supabase Edge Functions prepara el pago.
 
 ## 3. Modelo de Datos (Esquema Relacional - Supabase)
 
@@ -92,7 +92,7 @@ migraciones, incluidos los ámbitos y archivos históricos de los ciclos.
 4. **Tabla de Puntuación (Ranking):** Se calculan los puntos (solo tareas `approved`) dentro de la `season` activa. Se muestra un podio (1er, 2do, 3er lugar) y una gráfica de barras horizontales del aporte total al equipo.
 5. **Administración del ciclo:** El creador administra solo el ciclo que creó. Puede editar el catálogo y finalizarlo. Al crear otro ciclo se eligen nombre y fecha prevista y se obtiene un catálogo nuevo. Los antiguos miembros se unen con el nuevo código.
 6. **Perfil:** Nombre editable, tema claro/oscuro y preferencias de avisos. Solo las cuentas creadas por correo pueden editar su foto. Las cuentas de Google y GitHub usan el avatar del proveedor cuando está disponible.
-7. **Planes:** Casa gratis, Familia a $39 MXN al mes y Comunidad a $69 MXN al mes. Familia anuncia hasta tres ciclos simultáneos y Comunidad hasta diez ciclos y resúmenes. Esos beneficios son una propuesta para la demostración académica. En Android, Familia abre la captura nativa de tarjeta de Stripe para pagar la primera factura de una suscripción de prueba. Comunidad queda pendiente de integración. La app consulta Stripe al abrir Planes y después del pago para identificar el plan actual. La cancelación se realiza desde el panel de pruebas de Stripe.
+7. **Planes:** Casa gratis, Familia a $39 MXN al mes y Comunidad a $69 MXN al mes. Familia anuncia hasta tres ciclos simultáneos y Comunidad hasta diez ciclos y resúmenes. Esos beneficios son una propuesta para la demostración académica. En Android, Familia y Comunidad abren la captura nativa de tarjeta de Stripe para pagar la primera factura de la suscripción de prueba elegida. Una suscripción activa impide contratar otro plan; para cambiar se cancela la anterior en Stripe. La app consulta Stripe al abrir Planes y después del pago para identificar el plan actual. La cancelación se realiza desde el panel de pruebas de Stripe.
 
 ## 5. Interfaz de Usuario (UI / UX) - "Casa en Juego"
 
@@ -123,7 +123,7 @@ Sin membresía activa se muestran Perfil y Planes.
 * **Ranking:** Tarjeta con podio circular para los 3 primeros, lista inferior para el resto. Gráfica de barras horizontales ("Puntos por persona") y tarjeta de "Tu aporte al equipo".
 * **Perfil:** Información del usuario, accesos a "Mi actividad" y *switch* de "Avisos de revisión".
 * **Administración:** Pantalla accesible desde Perfil para crear un ciclo cuando la cuenta está libre o administrar el actual si se es su creador. El mismo formulario sirve para crear ciclos posteriores.
-* **Planes:** Tres tarjetas con precio y beneficios anunciados y un aviso de demostración. Familia habilita el pago de prueba en Android. El catálogo web explica dónde probar el formulario nativo.
+* **Planes:** Tres tarjetas con precio y beneficios anunciados y un aviso de demostración. Familia y Comunidad habilitan el pago de prueba en Android cuando no hay otra suscripción activa. El catálogo web explica dónde probar el formulario nativo.
 
 ## 6. Estructura de Carpetas (Feature-First Architecture)
 

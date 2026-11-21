@@ -12,7 +12,7 @@ class FamilyPaymentFailure implements Exception {
 
 abstract interface class FamilyPaymentRepository {
   Future<AccountPlan> currentPlan();
-  Future<FamilyPaymentResult> checkout();
+  Future<FamilyPaymentResult> checkout(AccountPlan plan);
 }
 
 class StripeFamilyPaymentRepository implements FamilyPaymentRepository {
@@ -35,10 +35,14 @@ class StripeFamilyPaymentRepository implements FamilyPaymentRepository {
   }
 
   @override
-  Future<FamilyPaymentResult> checkout() async {
+  Future<FamilyPaymentResult> checkout(AccountPlan plan) async {
+    if (plan == AccountPlan.casa) {
+      throw const FamilyPaymentFailure('Casa es gratuito y no requiere pago.');
+    }
     try {
       final response = await client.functions.invoke(
         'create-family-subscription',
+        body: {'action': 'checkout', 'plan': plan.name},
       );
       final data = response.data as Map<String, dynamic>;
       if (data['status'] == 'active') return FamilyPaymentResult.alreadyActive;

@@ -16,6 +16,14 @@ class PlansPage extends ConsumerWidget {
     final supported = ref.watch(familyPaymentSupportedProvider);
     final planState = ref.watch(currentPlanProvider);
     final plan = planState.asData?.value;
+    final hasSubscription =
+        plan == AccountPlan.familia || plan == AccountPlan.comunidad;
+    final canPay =
+        supported &&
+        !payment.isLoading &&
+        !planState.isLoading &&
+        !planState.hasError &&
+        plan == AccountPlan.casa;
     ref.listen(familyPaymentProvider, (previous, next) {
       if (next.isLoading || identical(previous, next)) return;
       final error = next.error;
@@ -27,8 +35,7 @@ class PlansPage extends ConsumerWidget {
           : switch (result) {
               FamilyPaymentResult.completed => 'Pago de prueba completado. Puedes ver la suscripción en Stripe.',
               FamilyPaymentResult.canceled => 'Pago cancelado.',
-              FamilyPaymentResult.alreadyActive =>
-                'Ya tienes una suscripción Familia de prueba activa en Stripe.',
+              FamilyPaymentResult.alreadyActive => 'Ya tienes una suscripción de prueba activa. Actualizamos tu plan.',
               null => null,
             };
       if (message != null) {
@@ -66,7 +73,13 @@ class PlansPage extends ConsumerWidget {
                 ],
                 if (!supported) ...[
                   const Text(
-                    'El pago de prueba de Familia está disponible en Android.',
+                    'Los pagos de prueba están disponibles en Android.',
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if (hasSubscription) ...[
+                  const Text(
+                    'Para cambiar de plan, cancela la suscripción desde Stripe y vuelve a abrir esta pantalla.',
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -92,19 +105,16 @@ class PlansPage extends ConsumerWidget {
                   ],
                   buttonLabel: plan == AccountPlan.familia
                       ? 'Plan actual'
+                      : hasSubscription
+                      ? 'Otro plan activo'
                       : payment.isLoading
                       ? 'Preparando pago…'
                       : 'Probar pago',
-                  onPressed:
-                      !supported ||
-                          payment.isLoading ||
-                          planState.isLoading ||
-                          planState.hasError ||
-                          plan == null ||
-                          plan == AccountPlan.familia
-                      ? null
-                      : () =>
-                            ref.read(familyPaymentProvider.notifier).checkout(),
+                  onPressed: canPay
+                      ? () => ref
+                            .read(familyPaymentProvider.notifier)
+                            .checkout(AccountPlan.familia)
+                      : null,
                 ),
                 const SizedBox(height: 16),
                 _PlanCard(
@@ -116,7 +126,16 @@ class PlansPage extends ConsumerWidget {
                   ],
                   buttonLabel: plan == AccountPlan.comunidad
                       ? 'Plan actual'
+                      : hasSubscription
+                      ? 'Otro plan activo'
+                      : payment.isLoading
+                      ? 'Preparando pago…'
                       : 'Probar pago',
+                  onPressed: canPay
+                      ? () => ref
+                            .read(familyPaymentProvider.notifier)
+                            .checkout(AccountPlan.comunidad)
+                      : null,
                 ),
               ],
             ),

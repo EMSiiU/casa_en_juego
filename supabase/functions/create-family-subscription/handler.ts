@@ -4,6 +4,7 @@ type Config = {
   stripeSecretKey: string;
   stripePublishableKey: string;
   familyPrice: string;
+  communityPrice: string;
 };
 
 type Subscription = {
@@ -105,19 +106,21 @@ export function createHandler(config: Config, request: typeof fetch = fetch) {
       }
       if (
         !config.stripeSecretKey.startsWith("sk_test_") ||
-        !config.stripePublishableKey.startsWith("pk_test_") ||
-        !config.familyPrice.startsWith("price_")
+        !config.stripePublishableKey.startsWith("pk_test_")
       ) {
         throw new PaymentError(
           503,
-          "Configura las tres credenciales de Stripe del entorno de pruebas.",
+          "Configura las claves de Stripe del entorno de pruebas.",
         );
       }
 
       const body = await incoming.text();
       let action: unknown;
+      let plan: unknown;
       try {
-        action = body ? JSON.parse(body)?.action ?? "checkout" : "checkout";
+        const payload = body ? JSON.parse(body) : {};
+        action = payload?.action ?? "checkout";
+        plan = payload?.plan ?? "familia";
       } catch {
         throw new PaymentError(400, "Solicitud no válida.");
       }
@@ -142,6 +145,20 @@ export function createHandler(config: Config, request: typeof fetch = fetch) {
         return json({ plan: current?.metadata.plan ?? "casa" });
       }
 
+      if (plan !== "familia" && plan !== "comunidad") {
+        throw new PaymentError(400, "Selecciona Familia o Comunidad.");
+      }
+      const selectedPrice = plan === "familia"
+        ? config.familyPrice
+        : config.communityPrice;
+      const amount = plan === "familia" ? 3900 : 6900;
+      const name = plan === "familia" ? "Familia" : "Comunidad";
+      if (!selectedPrice.startsWith("price_")) {
+        throw new PaymentError(
+          503,
+          `Configura el precio de ${name} en Supabase.`,
+        );
+      }
       // El precio se elige en el servidor y se contrasta con la tarjeta de Planes.
       const price = await stripe<{
         active: boolean;
@@ -149,15 +166,17 @@ export function createHandler(config: Config, request: typeof fetch = fetch) {
         currency: string;
         unit_amount: number;
         recurring?: { interval: string; interval_count: number };
-      }>(`prices/${encodeURIComponent(config.familyPrice)}`);
+      }>(`prices/${encodeURIComponent(selectedPrice)}`);
       if (
         !price.active || price.livemode || price.currency !== "mxn" ||
-        price.unit_amount !== 3900 || price.recurring?.interval !== "month" ||
+        price.unit_amount !== amount || price.recurring?.interval !== "month" ||
         price.recurring.interval_count !== 1
       ) {
         throw new PaymentError(
           503,
-          "El precio de Familia debe ser de prueba, activo y de $39 MXN al mes.",
+          `El precio de ${name} debe ser de prueba, activo y de $${
+            amount / 100
+          } MXN al mes.`,
         );
       }
 
@@ -168,11 +187,30 @@ export function createHandler(config: Config, request: typeof fetch = fetch) {
           limit: "1",
         },
       );
-      const customer = customers.data[0] ??
-        await stripe<{ id: string }>("customers", {
+      let customer = customers.data[0];
+      let customerKey = `casa-customer-${user.id}`;
+      // Un POST idempotente puede devolver el cliente original ya eliminado.
+      // Verifica su estado actual y usa su id como siguiente generación estable.
+      for (let attempt = 0; !customer && attempt < 5; attempt++) {
+        const created = await stripe<{ id: string }>("customers", {
           "metadata[supabase_user_id]": user.id,
           ...(user.email ? { email: user.email } : {}),
-        }, `casa-customer-${user.id}`);
+        }, customerKey);
+        const current = await stripe<{ id: string; deleted?: boolean }>(
+          `customers/${encodeURIComponent(created.id)}`,
+        );
+        if (current.deleted) {
+          customerKey = `casa-customer-${user.id}-after-${current.id}`;
+        } else {
+          customer = current;
+        }
+      }
+      if (!customer) {
+        throw new PaymentError(
+          503,
+          "No pudimos restablecer el cliente de pruebas. Intenta más tarde.",
+        );
+      }
       const subscriptions = await stripe<{ data: Subscription[] }>(
         "subscriptions",
         {
@@ -181,39 +219,55 @@ export function createHandler(config: Config, request: typeof fetch = fetch) {
           limit: "100",
         },
       );
-      const previous = subscriptions.data.find((item) =>
-        item.metadata.plan === "familia"
+      const paid = subscriptions.data.filter((item) =>
+        ["familia", "comunidad"].includes(item.metadata.plan ?? "")
       );
-      if (previous && ["active", "trialing"].includes(previous.status)) {
-        return json({ status: "active", subscriptionId: previous.id });
+      const active = paid.find((item) =>
+        ["active", "trialing"].includes(item.status)
+      );
+      if (active) {
+        return json({
+          status: "active",
+          plan: active.metadata.plan,
+          subscriptionId: active.id,
+        });
       }
+      // Una factura pendiente de otro plan debe resolverse antes de cambiar.
+      // Así no quedan dos formularios de planes distintos listos para pagar.
       if (
-        previous &&
-        !["incomplete", "incomplete_expired", "canceled"].includes(
-          previous.status,
+        paid.some((item) =>
+          !["incomplete_expired", "canceled"].includes(item.status) &&
+          !(item.status === "incomplete" && item.metadata.plan === plan)
         )
       ) {
         throw new PaymentError(
           409,
-          "La suscripción requiere revisión en el panel de pruebas de Stripe.",
+          "Revisa o cancela la suscripción pendiente en el panel de pruebas de Stripe antes de contratar otro plan.",
         );
       }
+      const previous = paid.find((item) => item.metadata.plan === plan);
 
       // Reutiliza la factura pendiente al reabrir la hoja o al repetir la solicitud.
       const subscription = previous?.status === "incomplete"
         ? await stripe<Subscription>(`subscriptions/${previous.id}`, {
           "expand[0]": "latest_invoice.confirmation_secret",
         })
-        : await stripe<Subscription>("subscriptions", {
-          customer: customer.id,
-          "items[0][price]": config.familyPrice,
-          payment_behavior: "default_incomplete",
-          "payment_settings[payment_method_types][0]": "card",
-          "payment_settings[save_default_payment_method]": "on_subscription",
-          "metadata[plan]": "familia",
-          "metadata[supabase_user_id]": user.id,
-          "expand[0]": "latest_invoice.confirmation_secret",
-        }, `casa-familia-${user.id}-${previous?.id ?? "first"}`);
+        : await stripe<Subscription>(
+          "subscriptions",
+          {
+            customer: customer.id,
+            "items[0][price]": selectedPrice,
+            payment_behavior: "default_incomplete",
+            "payment_settings[payment_method_types][0]": "card",
+            "payment_settings[save_default_payment_method]": "on_subscription",
+            "metadata[plan]": plan,
+            "metadata[supabase_user_id]": user.id,
+            "expand[0]": "latest_invoice.confirmation_secret",
+          },
+          `casa-subscription-${user.id}-${customer.id}-${
+            paid[0]?.id ?? "first"
+          }`,
+        );
       const clientSecret = subscription.latest_invoice?.confirmation_secret
         ?.client_secret;
       if (!clientSecret) {

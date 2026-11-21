@@ -6,4 +6,5 @@ Deno.serve(createHandler({
   stripeSecretKey: Deno.env.get("STRIPE_SECRET_KEY") ?? "",
   stripePublishableKey: Deno.env.get("STRIPE_PUBLISHABLE_KEY") ?? "",
   familyPrice: Deno.env.get("STRIPE_PRICE_FAMILIA") ?? "",
+  communityPrice: Deno.env.get("STRIPE_PRICE_COMUNIDAD") ?? "",
 }));

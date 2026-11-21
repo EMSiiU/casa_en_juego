@@ -109,9 +109,9 @@ como **Plan actual** y su botón está desactivado. Si no tienes una suscripció
 activa, se marca Casa. Los beneficios de pago siguen siendo una propuesta.
 Si falla la consulta, pulsa **Reintentar** antes de intentar pagar.
 
-### Probar el pago de Familia en Android
+### Probar el pago de Familia o Comunidad en Android
 
-1. Abre **Planes** en el celular y pulsa **Probar pago** en Familia.
+1. Abre **Planes** en el celular y pulsa **Probar pago** en Familia o Comunidad.
 2. Espera a que se abra el formulario de Stripe. Durante la preparación,
    el botón impide enviar otra solicitud.
 3. Escribe la tarjeta de prueba **4242 4242 4242 4242**, una fecha futura
@@ -120,12 +120,31 @@ Si falla la consulta, pulsa **Reintentar** antes de intentar pagar.
 
 Puedes cerrar el formulario para cancelar el intento. Si vuelves a abrirlo,
 se recupera el pago pendiente. Si ya completaste la suscripción de prueba,
-Familia muestra **Plan actual**, incluso al volver a abrir la pantalla o
+El plan que pagaste muestra **Plan actual**, incluso al volver a abrir la pantalla o
 iniciar sesión en otro dispositivo con la misma cuenta. Quien administra el proyecto puede ver
 y cancelar esa suscripción desde el panel de pruebas de Stripe.
 
 En Chrome y Edge se muestra el catálogo. El formulario nativo de esta etapa
-se prueba en Android. Comunidad conserva el botón desactivado.
+se prueba en Android.
+
+### Cambiar de plan durante la demostración
+
+Mientras tengas una suscripción activa, su tarjeta muestra **Plan actual** y
+la otra modalidad de pago muestra **Otro plan activo**, con ambos botones
+desactivados. Para cambiar:
+
+1. Pide a quien administra el proyecto que cancele la suscripción de esa cuenta
+   en el entorno de pruebas de Stripe, eligiendo cancelación inmediata.
+2. Sal de Planes y vuelve a entrar. Casa debe aparecer como **Plan actual**.
+3. Pulsa **Probar pago** en la otra modalidad y completa el formulario.
+
+Si la cancelación se programó al final del período, el plan sigue activo
+hasta que termine. Cerrar el formulario solo cancela el intento de pago;
+puede quedar una factura pendiente. Si la app pide revisar una suscripción
+pendiente antes de cambiar de plan, quien administra el proyecto debe
+cancelarla en Stripe. No se cambia ni se cancela la suscripción desde la app.
+Para repetir estas pruebas basta cancelar la suscripción; puedes conservar
+el cliente en Stripe. Eliminar ese cliente no elimina tu cuenta de Casa en Juego.
 
 ## 7. Envía un aviso general desde Firebase Console
 

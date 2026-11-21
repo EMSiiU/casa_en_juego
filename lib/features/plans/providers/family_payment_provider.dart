@@ -36,9 +36,11 @@ class FamilyPaymentController extends AsyncNotifier<FamilyPaymentResult?> {
     return null;
   }
 
-  Future<void> checkout() async {
+  Future<void> checkout(AccountPlan plan) async {
     final userId = ref.read(currentUserProvider).asData?.value?.id;
     if (state.isLoading ||
+        plan == AccountPlan.casa ||
+        ref.read(currentPlanProvider).asData?.value != AccountPlan.casa ||
         userId == null ||
         !ref.read(familyPaymentSupportedProvider)) {
       return;
@@ -47,7 +49,7 @@ class FamilyPaymentController extends AsyncNotifier<FamilyPaymentResult?> {
     state = const AsyncLoading();
     try {
       final result = await AsyncValue.guard(
-        () => ref.read(familyPaymentRepositoryProvider).checkout(),
+        () => ref.read(familyPaymentRepositoryProvider).checkout(plan),
       );
       if (ref.mounted &&
           ref.read(currentUserProvider).asData?.value?.id == userId) {
