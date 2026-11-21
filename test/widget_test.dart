@@ -184,7 +184,21 @@ void main() {
     await tapText(tester, 'Confirmar correo');
     expect(auth.confirmedCode, '123456');
     expect(find.text('Aún no tienes un ciclo'), findsOneWidget);
-    expect(find.byType(NavigationBar), findsNothing);
+    expect(
+      tester
+          .widget<NavigationBar>(find.byType(NavigationBar))
+          .destinations
+          .length,
+      2,
+    );
+    expect(
+      find.widgetWithText(NavigationDestination, 'Perfil'),
+      findsOneWidget,
+    );
+    expect(
+      find.widgetWithText(NavigationDestination, 'Planes'),
+      findsOneWidget,
+    );
 
     container.read(appRouterProvider).go('/reviews');
     await tester.pumpAndSettle();

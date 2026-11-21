@@ -2,17 +2,35 @@
 
 ## 1. Resumen del Proyecto
 
-Aplicación móvil multiplataforma (iOS y Android) diseñada para un grupo familiar (hermanos) con el objetivo de gamificar y registrar las tareas de limpieza del hogar. Los usuarios acumulan puntos mediante la realización de tareas predefinidas, las cuales deben ser validadas por otro miembro. La competencia funciona por ciclos con nombre y cuenta con un administrador.
+El proyecto nació para organizar las tareas de limpieza en casa y hacer visible
+la participación de los hermanos. La aplicación permite registrar las tareas
+realizadas y pedir a otro miembro que las valide. El objetivo es repartir y
+reconocer el esfuerzo mediante puntos y ciclos de competencia.
+
+Cada cuenta puede crear un ciclo o unirse mediante un código, con una sola
+membresía activa a la vez. Cada ciclo empieza con cinco tareas base y su
+creador como administrador. Al cerrarlo se conservan sus resultados e
+historial, y las cuentas pueden empezar otro ciclo independiente.
+
+Android es el destino de la demostración móvil y Firebase Hosting publica
+la versión web. La configuración de iOS requiere validación en esa plataforma.
 
 ## 2. Stack Tecnológico
 
 * **Frontend:** Flutter (Dart). Framework de código abierto.
 * **Backend / Base de Datos:** Supabase (PostgreSQL). Plataforma Backend-as-a-Service Open Source.
-* **Autenticación:** Supabase Auth (Email / Contraseña).
+* **Autenticación:** Supabase Auth con correo y contraseña, Google y GitHub. Incluye verificación, reenvío y recuperación por código.
 * **Notificaciones Push:** Supabase Edge Functions + Firebase Cloud Messaging (FCM). Activación externa y pruebas de entrega en `docs/push_notifications_setup.md`.
 * **Gráficos:** Paquete `fl_chart` para visualización de progreso en barra horizontal.
+* **Estado y navegación:** Riverpod y `go_router`.
+* **Perfil:** Fotos privadas en Supabase Storage y caché de imágenes en el celular.
+* **Planes:** Catálogo local de modalidades. Stripe en pruebas es la integración prevista para la siguiente etapa.
 
 ## 3. Modelo de Datos (Esquema Relacional - Supabase)
+
+Este resumen cubre los datos principales. El [manual técnico](docs/MANUAL.md)
+mantiene el esquema vigente, las funciones, las políticas y el orden de las
+migraciones, incluidos los ámbitos y archivos históricos de los ciclos.
 
 ### Tabla `users`
 * `id` (UUID, Primary Key)
@@ -20,6 +38,7 @@ Aplicación móvil multiplataforma (iOS y Android) diseñada para un grupo famil
 * `email` (String)
 * `role` (String) -> 'admin' | 'sibling'
 * `notifications_enabled` (Boolean, Default: true) -> Controla el switch "Avisos de revisión".
+* `is_household_member` (Boolean) y `cycle_group_id` (UUID, Nullable) -> Membresía activa en el ciclo.
 
 ### Tabla `tasks`
 * `id` (UUID, Primary Key)
@@ -35,6 +54,8 @@ Aplicación móvil multiplataforma (iOS y Android) diseñada para un grupo famil
 * `start_date` (Timestamptz)
 * `end_date` (Timestamptz, Nullable)
 * `status` (String) -> 'active' | 'closed'
+* `cycle_group_id` (UUID) -> Ámbito de datos del ciclo.
+* `planned_end_date` (Date) y `planned_duration_days` (Integer) -> Planificación elegida en el calendario.
 
 ### Tabla `task_logs` (Historial y Solicitudes)
 * `id` (UUID, Primary Key)
@@ -59,9 +80,9 @@ Aplicación móvil multiplataforma (iOS y Android) diseñada para un grupo famil
 * **Recordatorios diarios:** a las 18:00 y 20:00 de `America/Mexico_City`, avisar al usuario sin solicitudes propias pendientes o aprobadas registradas ese día. Requieren preferencia activa, dispositivo registrado y temporada activa. Se vuelve a comprobar la actividad antes de enviar; una tarea entre ambos horarios evita el segundo aviso. Los rechazados no cuentan como actividad válida. El recordatorio abre Tareas, se deduplica por dispositivo, día y horario y vence a los 30 minutos. Activación en `docs/inactivity_reminders_setup.md`.
 * La cola permite reintentos sin depender de que el usuario mantenga abierta la app. La entrega Android/iOS requiere configurar Firebase y desplegar la Edge Function; push web queda fuera de esta integración móvil.
 
-1. **Autenticación Cerrada:** El administrador crea las cuentas en el dashboard de Supabase. Los usuarios inician sesión con correo y contraseña.
+1. **Registro personal:** Cada persona crea su cuenta por correo o entra con Google o GitHub. Una cuenta sin ciclo activo abre Perfil y puede consultar Planes.
 2. **Registro de Tareas:** Un usuario selecciona una tarea. El sistema crea un `task_log` `pending` (hora del servidor). Los puntos no se suman hasta ser aprobados.
-   * Las tareas limitadas solo permiten una solicitud pendiente o aprobada por persona y día, incluso entre temporadas. Se renuevan a las 00:00 de Ciudad de México. Una solicitud rechazada permite reenviar ese mismo día. Supabase impone esta regla también ante envíos simultáneos.
+   * Las tareas limitadas solo permiten una solicitud pendiente o aprobada por persona, tarea y día. Se renuevan a las 00:00 de Ciudad de México. Cada ciclo nuevo recibe copias independientes del catálogo. Una solicitud rechazada permite reenviar ese mismo día. Supabase impone esta regla también ante envíos simultáneos.
    * Inicialmente se limitan barrer, lavar/limpiar baños, tender/hacer la cama y limpiar/ordenar mis cosas cuando existan en el catálogo. Las demás tareas son repetibles; administración puede cambiar la frecuencia.
    * El catálogo incorpora iconos de cama, estante, tenis, ropa, cosas de hermanos y cosas personales.
    * Tareas, Ranking y Revisiones comparten un menú de cuenta para cerrar sesión; Perfil conserva su acceso propio.
@@ -69,28 +90,29 @@ Aplicación móvil multiplataforma (iOS y Android) diseñada para un grupo famil
    * **Mis solicitudes ("Mi actividad"):** El usuario puede ver el estado de sus propias tareas (Pendientes, Aprobadas, Rechazadas).
    * **Solicitudes de otros ("Revisiones"):** Los usuarios ven y deciden (Aprobar/Rechazar) sobre las tareas de los demás.
 4. **Tabla de Puntuación (Ranking):** Se calculan los puntos (solo tareas `approved`) dentro de la `season` activa. Se muestra un podio (1er, 2do, 3er lugar) y una gráfica de barras horizontales del aporte total al equipo.
-5. **Control de Administrador (Flujos de Ciclo):** El administrador puede finalizar el ciclo activo (conservando el historial) y, posteriormente, iniciar un "Nuevo comienzo" nombrando la siguiente temporada. También puede editar nombre, puntos, ícono y estado (Activa/Inactiva) de las tareas.
+5. **Administración del ciclo:** El creador administra solo el ciclo que creó. Puede editar el catálogo y finalizarlo. Al crear otro ciclo se eligen nombre y fecha prevista y se obtiene un catálogo nuevo. Los antiguos miembros se unen con el nuevo código.
+6. **Perfil:** Nombre editable, tema claro/oscuro y preferencias de avisos. Solo las cuentas creadas por correo pueden editar su foto. Las cuentas de Google y GitHub usan el avatar del proveedor cuando está disponible.
+7. **Planes:** Casa gratis, Familia a $39 MXN al mes y Comunidad a $69 MXN al mes. Familia anuncia hasta tres ciclos simultáneos y Comunidad hasta diez ciclos y resúmenes. Esos beneficios son una propuesta para la demostración académica. La pantalla de catálogo es la primera etapa y el pago o suscripción con Stripe en pruebas queda para la siguiente.
 
 ## 5. Interfaz de Usuario (UI / UX) - "Casa en Juego"
 
-Diseño basado en **Dark Mode moderno con "Glassmorphism" suave**, de contrastes bajos y formas redondeadas.
+Diseño minimalista con Material 3, tarjetas redondeadas, fuente DM Sans y
+modo claro/oscuro elegido desde Perfil.
 
-### 5.1. Paleta de Colores (ThemeData en Flutter)
-* **Fondo Principal (Background):** `#1A1B22` (Gris oscuro casi negro).
-* **Fondo de Tarjetas (Surface):** `#242531` (Gris oscuro azulado).
-* **Color de Acento (Primary):** `#CBBDF8` (Lavanda claro).
-* **Texto Principal:** `#FFFFFF` (Blanco puro).
-* **Texto Secundario:** `#8C8E9E` (Gris medio).
-* **Estados (Validación):**
-  * Pendiente: `#F2C94C` (Amarillo ocre oscuro).
-  * Aprobada: `#2E7D32` o un verde esmeralda desaturado.
-  * Rechazada: `#D32F2F` o un rojo coral oscuro.
+### 5.1. Tema compartido
 
-### 5.2. Estructura de Navegación (`BottomNavigationBar`)
+`lib/core/theme/app_theme.dart` define las paletas y colores de estado.
+`AppPageBar` unifica altura, alineación y tipografía de los encabezados.
+El [manual técnico](docs/MANUAL.md) explica cómo cambiar esos estilos.
+
+### 5.2. Estructura de Navegación (`NavigationBar`)
 1. **Tareas:** Ícono de casa (`home`).
 2. **Ranking:** Ícono de trofeo (`emoji_events`).
 3. **Revisiones:** Ícono de círculo con check (`check_circle_outline`) con *Badge* numérico de pendientes.
 4. **Perfil:** Ícono de usuario (`person_outline`).
+5. **Planes:** Ícono de distintivo (`workspace_premium_outlined`).
+
+Sin membresía activa se muestran Perfil y Planes.
 
 ### 5.3. Diseño de Pantallas Clave
 
@@ -100,7 +122,8 @@ Diseño basado en **Dark Mode moderno con "Glassmorphism" suave**, de contrastes
 * **Revisiones:** Bandeja de entrada. Tarjetas grandes con botones de "Rechazar" y "Aprobar" explícitos.
 * **Ranking:** Tarjeta con podio circular para los 3 primeros, lista inferior para el resto. Gráfica de barras horizontales ("Puntos por persona") y tarjeta de "Tu aporte al equipo".
 * **Perfil:** Información del usuario, accesos a "Mi actividad" y *switch* de "Avisos de revisión".
-* **Administración (Si rol == admin):** Reemplaza o extiende la vista de perfil. Muestra estadísticas de la temporada actual, acceso a "Gestionar tareas" (Catálogo y edición de campos) y botón de peligro "Finalizar ciclo" (vía *BottomSheet*), seguido de pantalla de "Un nuevo comienzo".
+* **Administración:** Pantalla accesible desde Perfil para crear un ciclo cuando la cuenta está libre o administrar el actual si se es su creador. El mismo formulario sirve para crear ciclos posteriores.
+* **Planes:** Tres tarjetas con precio y beneficios anunciados, con el aviso de demostración y botones desactivados hasta integrar el pago de prueba.
 
 ## 6. Estructura de Carpetas (Feature-First Architecture)
 
@@ -120,6 +143,7 @@ lib/
 │   ├── reviews/                # Pantalla 'Revisiones' (bandeja de entrada)
 │   ├── profile/                # Pantalla 'Perfil' y toggle de notificaciones
 │   ├── notifications/          # Permisos, registro de dispositivos y recepción de avisos
-│   └── admin/                  # Pantallas 'Cuidar del equipo', 'Gestionar tareas', 'Editar tarea', 'Cierre/Inicio de ciclo'
+│   ├── admin/                  # Administración, catálogo e historial de ciclos
+│   └── plans/                  # Catálogo de Casa, Familia y Comunidad
 └── main.dart
 ```

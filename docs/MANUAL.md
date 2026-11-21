@@ -11,8 +11,9 @@ El ciclo es la unidad que se crea, comparte y cierra. Cada cuenta tiene
 como máximo una membresía activa. Las tareas, resultados e historial se
 conservan al terminar y cada ciclo nuevo empieza con su propio catálogo.
 El maestro aprobó usar Supabase para datos y autenticación, y Firebase para
-avisos. La entrega es el domingo 22 de noviembre de 2026. El mapa y el pago
-siguen pendientes.
+avisos. La entrega es el domingo 22 de noviembre de 2026. La pantalla de
+Planes presenta Casa, Familia y Comunidad. La integración de Stripe en
+pruebas y el mapa forman parte del trabajo pendiente.
 
 ## 2. Arquitectura y tecnologías
 
@@ -71,7 +72,8 @@ las interfaces de repositorio por implementaciones de prueba.
    son rutas públicas. Una cuenta sin membresía activa puede abrir `/admin`
    para crear un ciclo. Las rutas `/admin/tasks` requieren el rol de
    administrador del ciclo activo. `/profile/ciclos` y `/tasks/activity`
-   siguen disponibles después del cierre.
+   siguen disponibles después del cierre. `/plans` está disponible para
+   cualquier cuenta autenticada, incluso antes de crear o unirse a un ciclo.
 4. `ProfileController.setNotifications()` actualiza la preferencia guardada en
    PostgreSQL y sincroniza el estado de avisos. Perfil muestra nombre, correo,
    rol, avatar e información del ciclo activo cuando corresponde.
@@ -646,8 +648,9 @@ habitual. El listener de aperturas de Flutter sigue procesando los avisos
 privados para llevar al usuario a la ruta correspondiente. El responsable
 del proyecto reportó la prueba del aviso generado por una actividad
 enviada a revisión en Android, en los tres estados. Sigue pendiente la
-prueba de entrega directa desde Firebase Console en esos estados. iOS
-requiere APNs.
+validación documentada de los tres estados y de la baja del tema.
+El responsable ya reportó la recepción de Avisos generales desde consola.
+iOS requiere APNs.
 
 Enlaces de estudio: [NotificationHost](../lib/features/notifications/presentation/notification_host.dart),
 [sesión de avisos](../lib/features/notifications/services/notification_session.dart),
@@ -821,6 +824,56 @@ se controlan desde el `padding` de sus vistas desplazables. En Revisiones
 el espaciado inferior forma parte de cada tarjeta. El nombre del ciclo en
 Tareas se muestra en un `Text` dentro de la columna del panel.
 
+### Pantalla de Planes
+
+[`PlansPage`](../lib/features/plans/presentation/plans_page.dart) presenta
+un catálogo local con tres modalidades. Casa, gratuita, representa las
+funciones disponibles. Familia cuesta $39 MXN al mes y anuncia hasta tres
+ciclos simultáneos. Comunidad cuesta $69 MXN al mes y anuncia hasta diez
+ciclos y resúmenes de participación. Los precios y beneficios de pago
+forman parte de la propuesta académica. La pantalla lo explica antes
+de las tarjetas.
+
+`PlansPage.build()` monta el encabezado compartido con `AccountMenu`, que
+muestra la foto o las iniciales de la cuenta y permite cerrar sesión,
+y la lista desplazable
+limitada a 600 píxeles lógicos y la barra inferior. `_PlanCard.build()`
+recibe nombre, precio, beneficios y etiqueta del botón y dibuja cada
+tarjeta con el tema activo. Casa muestra **Plan actual** y las otras
+tarjetas **Probar pago**. Los tres botones están desactivados en este
+minibloque. Los datos son constantes y se renderizan desde el mismo
+archivo.
+
+```mermaid
+flowchart LR
+    Cuenta["Cuenta autenticada"] --> Nav["AppNavigationBar · Planes"]
+    Nav --> Ruta["go_router · /plans"]
+    Ruta --> Vista["PlansPage"]
+    Vista --> Casa["Casa · Gratis"]
+    Vista --> Familia["Familia · $39 MXN / mes"]
+    Vista --> Comunidad["Comunidad · $69 MXN / mes"]
+```
+
+`AppNavigationBar` conserva los índices de Tareas (0), Ranking (1),
+Revisiones (2) y Perfil (3), y añade Planes (4). Con ciclo activo muestra
+cinco destinos. Sin ciclo muestra Perfil y Planes, traduce esos dos
+destinos a los índices 3 y 4 y omite la consulta de pendientes de revisión.
+El router mantiene la comprobación de sesión para el acceso directo.
+
+El siguiente minibloque conectará **Probar pago** con Stripe en su entorno
+de pruebas. La integración, la captura nativa de tarjeta y el estado de
+suscripción siguen pendientes. El alcance acordado promociona los
+beneficios de pago y conserva una sola membresía activa por cuenta.
+
+Para probar esta etapa, abre Planes desde el celular o Chrome. Comprueba
+las tres tarjetas, los precios, los botones desactivados y el regreso
+a Perfil. Repite con una cuenta sin ciclo activo y con ambos temas.
+`test/plans_test.dart` cubre esos recorridos a 320 y 1100 píxeles y
+comprueba que una visita sin sesión a `/plans` vuelva al login.
+La verificación del 21 de noviembre terminó con el análisis Dart sin
+hallazgos, 134 pruebas Flutter aprobadas y compilaciones locales de web
+y APK de depuración completadas.
+
 ## 8. Rúbrica del proyecto final
 
 | Requisito | Estado en este repositorio |
@@ -828,16 +881,16 @@ Tareas se muestra en un `Text` dentro de la columna del panel.
 | Problemática, objetivo y alcance | Parcial. Hay un [planteamiento](../planteamiento.md). Falta incluir evidencia del problema y el alcance acordado con el maestro. |
 | Base de datos y sincronización | Supabase PostgreSQL aprobado por el maestro para datos y autenticación. Flutter vuelve a consultar después de las operaciones y en puntos de refresco de cada pantalla; los avisos privados también pueden invalidar consultas. La app carece de una suscripción general a Supabase Realtime. |
 | Almacenamiento y caché local de imágenes | Supabase Storage privado guarda la foto personal. Android e iOS conservan la copia por cuenta y la muestran al reabrir sin conexión cuando hay una sesión guardada. Queda pendiente confirmar la aceptación de Supabase Storage para este requisito. |
-| FCM desde consola, Topics y tres estados | Hay escuchador global, aviso general en primer plano y una opción de suscripción al Topic `avisos_generales`. Pendientes la prueba real desde Firebase Console en Android en los tres estados y la confirmación de baja del tema. |
+| FCM desde consola, Topics y tres estados | Hay escuchador global y suscripción al Topic `avisos_generales`. El responsable reportó recepción desde Firebase Console. Falta registrar evidencia de los tres estados y de la baja del tema. |
 | Auth, alta por correo y dos proveedores | Implementado. Incluye registro, verificación, reenvío, recuperación por correo y acceso con Google y GitHub mediante Supabase Auth. El responsable del proyecto reportó que funcionaron el correo y ambos proveedores en su entorno. |
-| Perfil y avatar sincronizado | Nombre editable y avatar compartido entre Perfil y Tareas. Solo la cuenta creada por correo puede subir, reemplazar o quitar su foto. Aplicar la migración de permisos en el proyecto remoto. |
+| Perfil y avatar sincronizado | Nombre editable, restricción de edición a cuentas creadas por correo y caché local implementados. El responsable reportó que las fotos y el uso sin conexión funcionaron en el celular. |
 | Creación y acceso a ciclos | Implementados la creación, el ingreso mediante código y el historial tras el cierre. Cada cuenta tiene una sola membresía activa. Queda pendiente la salida individual durante un ciclo activo. |
 | Estado con Riverpod | Implementado. Las ocho llamadas explícitas a `setState` fueron sustituidas. La búsqueda en `lib/` tampoco encontró usos explícitos de `ValueNotifier`. |
 | Tipografía y tema dinámico | Implementados. DM Sans viene incluida con la app y Perfil permite cambiar y recordar el modo claro u oscuro. |
 | Bienvenida | Pantalla inicial aplazada. El [manual de usuario](manual%20de%20usuario.md) explica los flujos disponibles. |
 | Responsividad y widget avanzado | Parcial. Hay límites de ancho y pruebas en pantallas pequeñas. La adaptación a escritorio debe validarse. La gráfica de Ranking es candidata al 10% si el maestro la acepta. |
 | Sensor y mapa nativo | Pendiente. Biometría para confirmar el cierre de ciclo es una propuesta. El propósito y la ubicación del mapa dependen del alcance acordado. |
-| Pagos o suscripciones | Pendiente. Stripe PaymentSheet es una opción para mostrar un formulario nativo de pago en modo de pruebas. También falta definir si se evaluará pedido simulado o tres planes. |
+| Pagos o suscripciones | Catálogo de tres modalidades implementado con Casa gratis. Stripe elegido para el próximo minibloque. Pendientes el pago o suscripción de prueba y la captura nativa de tarjeta. Los beneficios de los planes de pago se presentan como propuesta. |
 | Entrega y estabilidad | Parcial. Hay Git, pruebas y documentación. Faltan el reporte final, APK de entrega y ensayo completo. |
 
 ## 9. Cómo ejecutar y probar
@@ -880,6 +933,12 @@ Supabase se mantiene para base de datos, autenticación y fotos de perfil.
 El ingreso por código asigna el rol de miembro y respeta una sola membresía
 activa por cuenta. Quedan pendientes el enlace de invitación y la salida
 individual durante un ciclo activo.
+
+**Registro del 21 de noviembre de 2026.** Se incorporó Planes en la
+navegación inferior con las modalidades Casa, Familia y Comunidad. Las
+cuentas sin ciclo pueden alternar entre Perfil y Planes. Se acordó
+integrar Stripe en pruebas en una etapa posterior y presentar las
+ventajas de pago como propuesta.
 
 **Registro del 15 de noviembre de 2026.** Se añadió la creación del primer
 ciclo desde Perfil y el aislamiento de datos y avisos por grupo.
@@ -944,7 +1003,7 @@ también cuando el cliente llama directamente a la API.
 | `lib/core/constants/supabase_config.dart` | `SupabaseConfig` resuelve la URL y la clave publicable, con posibilidad de configurarlas al compilar. |
 | `lib/core/constants/task_log_status.dart` | `TaskLogStatus` centraliza los estados de solicitud que comparten Tareas, Revisiones y Actividad. |
 | `lib/core/router/app_router.dart` | El proveedor del router declara las rutas y sus redirecciones por sesión y rol. `refresh()` solicita reevaluar las redirecciones cuando cambia la sesión. |
-| `lib/core/router/app_navigation_bar.dart` | `AppNavigationBar` monta la navegación principal y actualiza el indicador de revisiones. |
+| `lib/core/router/app_navigation_bar.dart` | `AppNavigationBar` muestra cinco destinos con ciclo activo o Perfil y Planes sin ciclo. Actualiza el indicador de revisiones cuando hay membresía. |
 | `lib/core/theme/app_theme.dart` | `AppTheme._build()` prepara colores, tipografía y componentes compartidos. `AppStatusColors.copyWith()` y `lerp()` integran los colores semánticos en las transiciones de tema. |
 | `lib/core/theme/app_page_bar.dart` | `AppPageBar.build()` fija las dimensiones, alineación y tipografía de la barra y coloca sus controles laterales. |
 | `lib/core/theme/theme_mode_provider.dart` | `build()` restaura la preferencia y `setDarkMode()` guarda el modo elegido. |
@@ -1132,6 +1191,7 @@ automatizado con `supabase db push`.
 | `oauth_sign_in_test.dart`, `password_recovery_test.dart`, `provider_avatar_test.dart` | Acceso con proveedores, recuperación y lectura de metadatos del avatar. |
 | `account_photo_repository_test.dart` | Aislamiento de archivos por cuenta y URL, persistencia al volver a crear la caché, limpieza al faltar el objeto y restauración de sesión sin conexión. |
 | `profile_test.dart`, `profile_repository_test.dart` | Perfil, nombre, tema, foto, permisos, membresía y llamadas a Supabase. |
+| `plans_test.dart` | Acceso a Planes con y sin ciclo, regreso a Perfil, sesión obligatoria, tarjetas en móvil y escritorio y temas claro y oscuro. |
 | `admin_test.dart`, `admin_repository_test.dart` | Acceso administrativo, formulario, catálogo, invitación, historial y cierre. |
 | `tasks_test.dart`, `tasks_repository_test.dart`, `task_failure_test.dart`, `daily_task_limits_test.dart` | Vista de tareas, lecturas y envíos, errores y restricciones diarias. |
 | `reviews_test.dart`, `reviews_repository_test.dart` | Bandeja, aprobación y rechazo, filtros y persistencia. |
@@ -1141,9 +1201,15 @@ automatizado con `supabase db push`.
 | `support/fake_activity_repository.dart`, `support/fake_admin_repository.dart`, `support/fake_leaderboard_repository.dart`, `support/fake_profile_repository.dart`, `support/fake_reviews_repository.dart`, `support/fake_tasks_repository.dart` | Implementaciones en memoria de las interfaces que inyectan datos y errores reproducibles en las pruebas. |
 | `support/fake_notification_services.dart` | Sustituye FCM y Supabase en los flujos de avisos. |
 
+### 11.11 Planes
+
+| Archivo | Funciones y responsabilidad |
+|---|---|
+| `lib/features/plans/presentation/plans_page.dart` | `PlansPage.build()` presenta las tres modalidades. `_PlanCard.build()` construye sus tarjetas con los datos constantes y los estilos del tema. |
+
 ## 12. Auditoría del código, la base y Git
 
-La revisión partió de una copia limpia con 239 archivos versionados. Se
+La auditoría del 16 de noviembre partió de una copia limpia con 239 archivos versionados. Se
 contrastaron las importaciones de los 89 archivos Dart de producción, los
 27 archivos de pruebas Flutter, las referencias de SQL y el inventario
 de Git. Los 89 archivos Dart de producción son alcanzables desde

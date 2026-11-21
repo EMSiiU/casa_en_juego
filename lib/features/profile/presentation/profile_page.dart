@@ -59,7 +59,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final profile = ref.watch(profileProvider);
     final authAction = ref.watch(authControllerProvider);
     final sessionUser = ref.watch(currentUserProvider).asData?.value;
-    final isHouseholdMember = sessionUser?.isHouseholdMember ?? false;
     final isDark = ref.watch(themeModeProvider) == ThemeMode.dark;
     return Scaffold(
       appBar: const AppPageBar(title: 'Tu perfil'),
@@ -158,9 +157,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           ),
         ),
       ),
-      bottomNavigationBar: isHouseholdMember
-          ? const AppNavigationBar(selectedIndex: 3)
-          : null,
+      bottomNavigationBar: const AppNavigationBar(selectedIndex: 3),
     );
   }
 

@@ -49,6 +49,7 @@ La fecha prevista sirve para organizarse. Para finalizar el ciclo, el administra
 | **Revisiones** | Aprobar o rechazar las tareas que enviaron otras personas del ciclo. |
 | **Ranking** | Ver la clasificación y los puntos aprobados del ciclo activo. |
 | **Perfil** | Personalizar tu cuenta, consultar tu actividad y revisar ciclos cerrados. |
+| **Planes** | Consultar las modalidades Casa, Familia y Comunidad. |
 
 ### Registrar una tarea
 
@@ -92,7 +93,22 @@ Al cerrar el ciclo, los participantes pueden crear otro o unirse con un código 
 - **Avisos generales.** Activa esta opción en **Perfil** para recibir anuncios de Casa en Juego en el celular. Puedes desactivarla desde el mismo lugar.
 - **Sesión.** Usa **Cerrar sesión** desde Perfil.
 
-## 6. Envía un aviso general desde Firebase Console
+## 6. Consulta los planes
+
+Pulsa **Planes**, a la derecha de **Perfil** en la barra inferior. Si
+todavía no participas en un ciclo, puedes alternar entre esas dos pantallas.
+
+| Modalidad | Precio anunciado | Incluye |
+| --- | --- | --- |
+| **Casa** | Gratis | Un ciclo activo, tareas personalizadas e historial de actividad. |
+| **Familia** | $39 MXN al mes | Propuesta de hasta tres ciclos simultáneos para casa, escuela y actividades familiares. |
+| **Comunidad** | $69 MXN al mes | Propuesta de hasta diez ciclos simultáneos y resúmenes de participación. |
+
+Casa aparece como **Plan actual**. Los botones **Probar pago** de Familia
+y Comunidad están desactivados mientras se prepara la demostración de pago.
+La pantalla presenta los beneficios de pago como propuesta.
+
+## 7. Envía un aviso general desde Firebase Console
 
 Estos pasos son para quien tenga acceso al proyecto de Casa en Juego en Firebase. El aviso se envía a los celulares que tengan activados los avisos generales.
 

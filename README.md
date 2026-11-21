@@ -1,21 +1,26 @@
-# casa_en_juego
+# Casa en Juego
 
-La publicación de la versión web y el acceso desde iPhone están documentados en [la guía de Firebase Hosting](docs/firebase_hosting_setup.md).
+Aplicación Flutter para organizar tareas domésticas por ciclos. Cada persona
+registra su trabajo y otro miembro lo revisa. Las tareas aprobadas suman
+puntos en la clasificación del ciclo. Supabase gestiona datos, acceso y
+fotos de perfil. Firebase entrega avisos móviles y aloja la versión web.
 
-La activación de notificaciones móviles con Supabase y FCM está documentada en [la guía de configuración](docs/push_notifications_setup.md). Incluye la migración SQL, los secretos del servidor, el despliegue y la prueba con dos usuarios.
+La pantalla **Planes** presenta Casa gratis, Familia a $39 MXN al mes y
+Comunidad a $69 MXN al mes. Los planes de pago anuncian beneficios de
+demostración. La integración con Stripe en pruebas es el siguiente paso.
 
-A new Flutter project.
+## Ejecutar
 
-## Getting Started
+```powershell
+flutter pub get
+flutter run
+```
 
-This project is a starting point for a Flutter application.
+## Documentación
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- [Planteamiento y alcance](planteamiento.md).
+- [Manual de usuario](docs/manual%20de%20usuario.md).
+- [Manual técnico, arquitectura y pruebas](docs/MANUAL.md).
+- [Publicación web en Firebase Hosting](docs/firebase_hosting_setup.md).
+- [Configuración de avisos móviles](docs/push_notifications_setup.md).
+- [Activación de recordatorios](docs/inactivity_reminders_setup.md).

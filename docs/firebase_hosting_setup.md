@@ -40,9 +40,10 @@ Esta versión permite usar las funciones de la app desde el navegador. Las
 notificaciones de aprobación, revisión y recordatorios siguen disponibles en
 Android; su entrega web requiere una integración posterior.
 
-El acceso actual utiliza correo y contraseña con Supabase. Si se añaden OAuth,
-enlaces mágicos o recuperación por correo, habrá que configurar también las URL
-de redirección del dominio publicado en Supabase Auth.
+El acceso utiliza correo y contraseña, Google y GitHub con Supabase Auth.
+El dominio publicado debe figurar entre las URL de retorno autorizadas en
+Supabase. La recuperación por correo usa el código que se introduce en la app.
+Los pasos están en el [manual técnico](MANUAL.md).
 
 ## Referencias
 

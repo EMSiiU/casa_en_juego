@@ -16,6 +16,7 @@ import '../../features/admin/presentation/admin_page.dart';
 import '../../features/admin/presentation/cycle_history_page.dart';
 import '../../features/admin/presentation/task_catalog_page.dart';
 import '../../features/admin/presentation/task_editor_page.dart';
+import '../../features/plans/presentation/plans_page.dart';
 import '../theme/app_page_bar.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -46,6 +47,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (user.asData?.value?.isHouseholdMember == false) {
         final isAccountPage =
             path == '/profile' ||
+            path == '/plans' ||
             path == '/admin' ||
             path == '/tasks/activity' ||
             path == '/profile/ciclos' ||
@@ -62,6 +64,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/plans',
+        name: 'plans',
+        builder: (context, state) => const PlansPage(),
+      ),
       GoRoute(
         path: '/admin',
         name: 'admin',
