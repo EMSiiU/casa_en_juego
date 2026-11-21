@@ -22,6 +22,10 @@ import 'widget_test.dart' show FakeAuthRepository, testUser;
 
 class _Payment extends Fake implements FamilyPaymentRepository {
   int calls = 0;
+  AccountPlan plan = AccountPlan.casa;
+
+  @override
+  Future<AccountPlan> currentPlan() async => plan;
   Completer<FamilyPaymentResult>? pending;
   Object? error;
   FamilyPaymentResult result = FamilyPaymentResult.completed;
@@ -56,6 +60,7 @@ void main() {
         ProviderScope(
           overrides: [
             familyPaymentSupportedProvider.overrideWithValue(false),
+            familyPaymentRepositoryProvider.overrideWithValue(_Payment()),
             authRepositoryProvider.overrideWithValue(auth),
             profileRepositoryProvider.overrideWithValue(
               FakeProfileRepository()..user = user,
@@ -157,16 +162,24 @@ void main() {
     await tester.pumpAndSettle();
     expect(payment.calls, 1);
     expect(tester.widget<FilledButton>(button).onPressed, isNull);
-    payment.pending!.complete(FamilyPaymentResult.completed);
+    payment.pending!.complete(FamilyPaymentResult.canceled);
     await tester.pumpAndSettle();
-    expect(find.textContaining('Pago de prueba completado'), findsOneWidget);
+    expect(find.text('Pago cancelado.'), findsOneWidget);
     ScaffoldMessenger.of(tester.element(button)).clearSnackBars();
     await tester.pumpAndSettle();
     payment.pending = null;
-    payment.result = FamilyPaymentResult.canceled;
+    payment.result = FamilyPaymentResult.completed;
+    payment.plan = AccountPlan.familia;
     await tester.tap(button);
     await tester.pumpAndSettle();
-    expect(find.text('Pago cancelado.'), findsOneWidget);
+    expect(
+      find.descendant(of: family, matching: find.text('Plan actual')),
+      findsOneWidget,
+    );
+    expect(tester.widget<FilledButton>(button).onPressed, isNull);
+    final container = ProviderScope.containerOf(tester.element(button));
+    payment.plan = AccountPlan.casa;
+    container.invalidate(currentPlanProvider);
     ScaffoldMessenger.of(tester.element(button)).clearSnackBars();
     await tester.pumpAndSettle();
     payment.error = const FamilyPaymentFailure('Error de pago de prueba');
@@ -175,6 +188,52 @@ void main() {
     expect(find.text('Error de pago de prueba'), findsOneWidget);
     expect(tester.widget<FilledButton>(button).onPressed, isNotNull);
   });
+
+  for (final plan in AccountPlan.values) {
+    testWidgets('Restores current plan ${plan.name} on opening Plans', (
+      tester,
+    ) async {
+      final payment = _Payment()..plan = plan;
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentUserProvider.overrideWith((ref) => Stream.value(testUser)),
+            familyPaymentSupportedProvider.overrideWithValue(true),
+            familyPaymentRepositoryProvider.overrideWithValue(payment),
+            reviewsRepositoryProvider.overrideWithValue(
+              FakeReviewsRepository(),
+            ),
+          ],
+          child: const MaterialApp(home: PlansPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final name = switch (plan) {
+        AccountPlan.casa => 'Casa',
+        AccountPlan.familia => 'Familia',
+        AccountPlan.comunidad => 'Comunidad',
+      };
+      final card = find.ancestor(
+        of: find.text(name),
+        matching: find.byType(Card),
+      );
+      await tester.scrollUntilVisible(find.text(name), 200);
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: card, matching: find.text('Plan actual')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.descendant(of: card, matching: find.byType(FilledButton)),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(payment.calls, 0);
+    });
+  }
 
   testWidgets('Plans direct links require an authenticated session', (
     tester,

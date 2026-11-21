@@ -2,7 +2,7 @@
 
 Esta etapa conecta Familia ($39 MXN al mes) con PaymentSheet en Android.
 Stripe crea la suscripción y cobra su primera factura de forma simulada.
-La app informa el resultado. Los beneficios anunciados en las tarjetas
+La app informa el resultado y consulta en Stripe cuál es el plan actual. Los beneficios anunciados en las tarjetas
 siguen formando parte de la propuesta académica.
 
 ## Preparación en Stripe y Supabase
@@ -47,6 +47,14 @@ Las pruebas usan datos ficticios y se ejecutan localmente desde `handler_test.ts
 La configuración de datos del ciclo y las funciones de avisos tienen sus
 propios despliegues.
 
+## Actualizar una función ya desplegada
+
+Antes de ejecutar esta versión de la app, abre **Edge Functions →
+create-family-subscription → Code**, reemplaza `handler.ts` por su versión
+actual del repositorio y pulsa **Deploy updates**. `index.ts`, los tres
+secretos y la configuración de JWT se conservan. Esta actualización añade
+`action: status`; una versión antigua del servidor no conoce esa consulta.
+
 ## Probar en el RMX3840 o el emulador Android
 
 1. Ejecuta `flutter pub get` y recompila Android. Stripe necesita una
@@ -57,7 +65,8 @@ propios despliegues.
    mientras abre el formulario nativo de Stripe.
 4. Usa la tarjeta ficticia `4242 4242 4242 4242`, fecha futura como `12/34`
    y CVC `123`. Completa los demás campos que solicite el formulario.
-5. Al confirmar debe aparecer el mensaje **Pago de prueba completado**.
+5. Al confirmar debe aparecer el mensaje **Pago de prueba completado**
+   y Familia debe mostrar **Plan actual**, con el botón desactivado.
    En Stripe, dentro del mismo entorno, abre el cliente y revisa su factura
    y suscripción. La suscripción se identifica con `metadata.plan = familia`
    y `metadata.supabase_user_id`.
@@ -79,13 +88,18 @@ ocurren en el sandbox, con sus claves y tarjetas de prueba.
   el catálogo y un aviso que indica dónde probar el pago nativo.
 - Comunidad conserva el botón desactivado hasta configurar su precio.
 - Casa representa el acceso gratuito a las funciones actuales. El resultado
-  de un pago se muestra como aviso, y la gestión de suscripciones se consulta
-  por ahora en Stripe.
+  de un pago se muestra como aviso. Al abrir Planes se consulta Stripe para
+  marcar la modalidad activa; Casa solo se marca si no hay un plan de pago activo.
 - La función crea o reutiliza un cliente por el identificador de Supabase,
   usa claves de idempotencia para los POST y reutiliza una suscripción pendiente.
-- Stripe actualiza sus facturas y estados. La sincronización de ese estado
-  en la app, el webhook y la cancelación desde Casa en Juego corresponden
-  a una etapa posterior.
+- Stripe actualiza sus facturas y estados. La app consulta el plan al abrir
+  Planes y después de pagar (también si Stripe informa que ya estaba activo).
+  Si cancelas inmediatamente desde Stripe, sal de Planes y vuelve a entrar.
+  Una cancelación al final del período conserva el plan mientras siga activo.
+  No hay webhook ni cancelación desde la app. Comunidad puede reconocerse por
+  su metadata, pero su botón de pago sigue sin integración.
+- Si falla la consulta, se ofrece Reintentar y no se permite iniciar el pago
+  hasta conocer el plan. Un fallo no se interpreta como acceso gratuito.
 - Si la función responde que el precio es incorrecto, comprueba moneda MXN,
   importe 39.00, recurrencia mensual y que el precio esté activo en pruebas.
 - Si el formulario no abre, comprueba el nombre de la función, su despliegue,

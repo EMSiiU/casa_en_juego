@@ -22,11 +22,12 @@ function setup() {
     confirmed: true,
     amount: 3900,
     status: "incomplete",
+    plan: "familia",
   };
   const payload = () => ({
     id: "sub_fixture",
     status: state.status,
-    metadata: { plan: "familia" },
+    metadata: { plan: state.plan },
     latest_invoice: {
       confirmation_secret: { client_secret: "pi_fixture_secret_test" },
     },
@@ -83,12 +84,13 @@ function setup() {
     throw new Error("Unexpected test request");
   };
   const handler = createHandler(config, request);
-  const post = () =>
+  const post = (action = "checkout") =>
     handler(
       new Request("https://function.example", {
         method: "POST",
         headers: { Authorization: "Bearer user-session" },
         body: JSON.stringify({
+          action,
           amount: 1,
           customer: "cus_foreign",
           price: "price_foreign",
@@ -166,4 +168,26 @@ Deno.test("Transport and provider errors return a safe message", async () => {
   );
   assert(response.status === 502);
   assert(!(await response.text()).includes("sensitive-body"));
+});
+
+Deno.test("Status is read-only and follows active plans and cancellation", async () => {
+  const test = setup();
+  assert((await (await test.post("status")).json()).plan === "casa");
+  assert(test.calls.every((call) => call.method === "GET"));
+  await test.post();
+  for (const plan of ["familia", "comunidad"]) {
+    test.state.status = "active";
+    test.state.plan = plan;
+    const start = test.calls.length;
+    const response = await test.post("status");
+    assert(response.status === 200);
+    const body = await response.json();
+    assert(body.plan === plan && !body.clientSecret);
+    assert(test.calls.slice(start).every((call) => call.method === "GET"));
+  }
+  for (const status of ["canceled", "incomplete", "past_due"]) {
+    test.state.status = status;
+    assert((await (await test.post("status")).json()).plan === "casa");
+  }
+  assert((await test.post("unsupported")).status === 400);
 });

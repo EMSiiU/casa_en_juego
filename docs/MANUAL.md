@@ -14,7 +14,7 @@ El maestro aprobó usar Supabase para datos y autenticación, y Firebase para
 avisos. La entrega es el domingo 22 de noviembre de 2026. La pantalla de
 Planes presenta Casa, Familia y Comunidad. Familia integra una suscripción
 de prueba de Stripe con formulario nativo en Android. El mapa, Comunidad
-y la gestión de suscripciones dentro de la app forman parte del trabajo pendiente.
+y la cancelación de suscripciones dentro de la app forman parte del trabajo pendiente.
 
 ## 2. Arquitectura y tecnologías
 
@@ -874,6 +874,47 @@ La verificación del 21 de noviembre terminó con el análisis Dart sin
 hallazgos, 134 pruebas Flutter aprobadas y compilaciones locales de web
 y APK de depuración completadas.
 
+### Identificar el plan actual
+
+`currentPlanProvider` depende de `currentUserProvider.future`, por lo que
+cambiar de cuenta vuelve a consultar su propio plan. Es `autoDispose`: al
+salir de Planes se descarta la consulta y al regresar se vuelve a solicitar.
+`StripeFamilyPaymentRepository.currentPlan()` envía `{"action":"status"}`
+a la misma Edge Function. El servidor valida la sesión, busca el cliente por
+`metadata.supabase_user_id` y lee sus suscripciones, sin crear datos ni cobros.
+La modalidad se reconoce por `metadata.plan` (`familia` o `comunidad`) y los
+estados `active` o `trialing`. Si ninguna cumple esas condiciones devuelve
+`casa`. Cancelar al final del período conserva el plan mientras esté activo.
+
+```mermaid
+sequenceDiagram
+    participant P as PlansPage / currentPlanProvider
+    participant F as Edge Function
+    participant S as Stripe pruebas
+    P->>F: POST action=status + sesión Supabase
+    F->>F: Verifica identidad con Supabase Auth
+    F->>S: Busca cliente y lee suscripciones
+    S-->>F: Estado y metadata.plan
+    F-->>P: plan: casa / familia / comunidad
+    P->>P: Marca Plan actual y desactiva ese botón
+```
+
+La pantalla no marca Casa mientras espera o si hay un error; muestra la
+consulta o permite Reintentar y bloquea el pago hasta conocer el plan.
+Después de un pago completado o una respuesta `alreadyActive`, el controlador
+invalida `currentPlanProvider`. El estado persistente proviene de Stripe,
+sin tablas nuevas, almacenamiento local del plan ni webhook. El checkout de
+Comunidad continúa pendiente. Para refrescar tras un cambio en el panel de
+Stripe basta salir de Planes y volver a entrar. El despliegue del handler debe
+preceder a la actualización de la app, pues versiones antiguas del servidor
+no reconocen la acción de consulta.
+
+Verificación de este ajuste: 138 pruebas Flutter y cinco pruebas del handler
+aprobadas; comprobación de tipos Deno aprobada. Se probaron la restauración
+de cada modalidad, el cambio de tarjeta después del pago y la consulta sin
+operaciones de escritura en Stripe. La comprobación del plan en el teléfono
+requiere desplegar primero la actualización del handler.
+
 ### Pago nativo de Familia con Stripe
 
 `PlansPage` observa `familyPaymentProvider` y muestra los resultados como
@@ -930,7 +971,7 @@ La verificación JWT del gateway se desactiva solo para esta función y el
 handler valida explícitamente el JWT contra Supabase Auth.
 
 El primer pago se procesa en el sandbox y Stripe conserva la suscripción
-y sus facturas. La consulta persistente del plan desde la app, el webhook
+y sus facturas. La app consulta el plan en Stripe; el webhook
 y la cancelación desde Casa en Juego quedan para una etapa posterior.
 Los pasos de despliegue, secretos y tarjetas ficticias están en la
 [guía de configuración de Stripe](stripe_test_setup.md).
@@ -938,8 +979,9 @@ Los pasos de despliegue, secretos y tarjetas ficticias están en la
 La verificación local de esta etapa completó el análisis Dart, 135 pruebas
 Flutter, la comprobación de tipos de Deno y cuatro pruebas del handler.
 También se compilaron el APK de depuración y la versión web. La sesión de
-la CLI de Supabase estaba sin configurar, por lo que el despliegue de la
-función y el pago en el dispositivo quedan pendientes en el entorno remoto.
+la CLI de Supabase estaba sin configurar. Posteriormente el responsable
+confirmó el pago en el celular y su registro en Stripe. La consulta del plan
+requiere desplegar la nueva versión de `handler.ts` antes de actualizar la app.
 
 ## 8. Rúbrica del proyecto final
 
@@ -957,7 +999,7 @@ función y el pago en el dispositivo quedan pendientes en el entorno remoto.
 | Bienvenida | Pantalla inicial aplazada. El [manual de usuario](manual%20de%20usuario.md) explica los flujos disponibles. |
 | Responsividad y widget avanzado | Parcial. Hay límites de ancho y pruebas en pantallas pequeñas. La adaptación a escritorio debe validarse. La gráfica de Ranking es candidata al 10% si el maestro la acepta. |
 | Sensor y mapa nativo | Pendiente. Biometría para confirmar el cierre de ciclo es una propuesta. El propósito y la ubicación del mapa dependen del alcance acordado. |
-| Pagos o suscripciones | Catálogo de tres modalidades y código de la suscripción Familia con PaymentSheet para Android. Pendientes desplegar la nueva función, la prueba real del sandbox en el RMX3840 y la integración de Comunidad. Los beneficios anunciados se mantienen como propuesta. |
+| Pagos o suscripciones | Catálogo de tres modalidades y código de la suscripción Familia con PaymentSheet para Android. El responsable confirmó un pago del sandbox desde el celular y su registro en Stripe. Pendientes desplegar la actualización de consulta del plan y la integración de Comunidad. Los beneficios anunciados se mantienen como propuesta. |
 | Entrega y estabilidad | Parcial. Hay Git, pruebas y documentación. Faltan el reporte final, APK de entrega y ensayo completo. |
 
 ## 9. Cómo ejecutar y probar
@@ -1273,8 +1315,8 @@ automatizado con `supabase db push`.
 | Archivo | Funciones y responsabilidad |
 |---|---|
 | `lib/features/plans/presentation/plans_page.dart` | `PlansPage.build()` presenta las modalidades y escucha resultados del pago. `_PlanCard.build()` construye cada tarjeta y conecta el botón de Familia al controlador. |
-| `lib/features/plans/providers/family_payment_provider.dart` | Expone disponibilidad y repositorio. `FamilyPaymentController.checkout()` administra carga y resultado del pago por sesión. |
-| `lib/features/plans/repositories/family_payment_repository.dart` | `StripeFamilyPaymentRepository.checkout()` solicita la factura, abre PaymentSheet y traduce su resultado a un aviso de la app. |
+| `lib/features/plans/providers/family_payment_provider.dart` | Expone disponibilidad y repositorio. `currentPlanProvider` consulta el plan por cuenta. `FamilyPaymentController.checkout()` administra carga y resultado del pago por sesión e invalida el plan tras éxito o suscripción ya activa. |
+| `lib/features/plans/repositories/family_payment_repository.dart` | `currentPlan()` consulta el plan en el servidor. `checkout()` solicita la factura, abre PaymentSheet y traduce su resultado a un aviso de la app. |
 | `supabase/functions/create-family-subscription/index.ts` | Carga la configuración de Secrets y monta el servidor Deno. |
 | `supabase/functions/create-family-subscription/handler.ts` | `createHandler()` verifica Auth, entorno y precio. `stripe()` realiza peticiones autenticadas al proveedor y filtra errores. |
 | `supabase/functions/create-family-subscription/handler_test.ts` | Prueba sesiones, precio controlado en el servidor, repetición del intento y errores sin información privada. |

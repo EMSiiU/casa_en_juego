@@ -3,18 +3,36 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 enum FamilyPaymentResult { completed, canceled, alreadyActive }
 
+enum AccountPlan { casa, familia, comunidad }
+
 class FamilyPaymentFailure implements Exception {
   const FamilyPaymentFailure(this.message);
   final String message;
 }
 
 abstract interface class FamilyPaymentRepository {
+  Future<AccountPlan> currentPlan();
   Future<FamilyPaymentResult> checkout();
 }
 
 class StripeFamilyPaymentRepository implements FamilyPaymentRepository {
   StripeFamilyPaymentRepository(this.client);
   final SupabaseClient client;
+
+  @override
+  Future<AccountPlan> currentPlan() async {
+    try {
+      final response = await client.functions.invoke(
+        'create-family-subscription',
+        body: {'action': 'status'},
+      );
+      return AccountPlan.values.byName(response.data['plan'] as String);
+    } catch (_) {
+      throw const FamilyPaymentFailure(
+        'No pudimos consultar tu plan. Intenta nuevamente.',
+      );
+    }
+  }
 
   @override
   Future<FamilyPaymentResult> checkout() async {

@@ -13,6 +13,16 @@ final familyPaymentRepositoryProvider = Provider<FamilyPaymentRepository>(
   (ref) => StripeFamilyPaymentRepository(ref.watch(supabaseClientProvider)),
 );
 
+final currentPlanProvider = FutureProvider.autoDispose<AccountPlan>((
+  ref,
+) async {
+  final user = await ref.watch(currentUserProvider.future);
+  if (user == null) {
+    throw const FamilyPaymentFailure('Inicia sesión para ver tu plan.');
+  }
+  return ref.watch(familyPaymentRepositoryProvider).currentPlan();
+});
+
 final familyPaymentProvider =
     AsyncNotifierProvider.autoDispose<
       FamilyPaymentController,
@@ -42,6 +52,10 @@ class FamilyPaymentController extends AsyncNotifier<FamilyPaymentResult?> {
       if (ref.mounted &&
           ref.read(currentUserProvider).asData?.value?.id == userId) {
         state = result;
+        if (result.asData?.value == FamilyPaymentResult.completed ||
+            result.asData?.value == FamilyPaymentResult.alreadyActive) {
+          ref.invalidate(currentPlanProvider);
+        }
       }
     } finally {
       pending.close();

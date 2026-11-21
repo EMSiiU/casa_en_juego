@@ -114,6 +114,34 @@ export function createHandler(config: Config, request: typeof fetch = fetch) {
         );
       }
 
+      const body = await incoming.text();
+      let action: unknown;
+      try {
+        action = body ? JSON.parse(body)?.action ?? "checkout" : "checkout";
+      } catch {
+        throw new PaymentError(400, "Solicitud no válida.");
+      }
+      if (action !== "status" && action !== "checkout") {
+        throw new PaymentError(400, "Acción no válida.");
+      }
+      if (action === "status") {
+        // Consultar no crea clientes, facturas ni suscripciones.
+        const customers = await stripe<{ data: { id: string }[] }>(
+          "customers/search",
+          { query: `metadata['supabase_user_id']:'${user.id}'`, limit: "1" },
+        );
+        if (!customers.data[0]) return json({ plan: "casa" });
+        const subscriptions = await stripe<{ data: Subscription[] }>(
+          "subscriptions",
+          { customer: customers.data[0].id, status: "all", limit: "100" },
+        );
+        const current = subscriptions.data.find((item) =>
+          ["familia", "comunidad"].includes(item.metadata.plan ?? "") &&
+          ["active", "trialing"].includes(item.status)
+        );
+        return json({ plan: current?.metadata.plan ?? "casa" });
+      }
+
       // El precio se elige en el servidor y se contrasta con la tarjeta de Planes.
       const price = await stripe<{
         active: boolean;

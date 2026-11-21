@@ -14,6 +14,8 @@ class PlansPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final payment = ref.watch(familyPaymentProvider);
     final supported = ref.watch(familyPaymentSupportedProvider);
+    final planState = ref.watch(currentPlanProvider);
+    final plan = planState.asData?.value;
     ref.listen(familyPaymentProvider, (previous, next) {
       if (next.isLoading || identical(previous, next)) return;
       final error = next.error;
@@ -51,13 +53,24 @@ class PlansPage extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 20),
+                if (planState.isLoading) ...[
+                  const Text('Consultando tu plan…'),
+                  const SizedBox(height: 16),
+                ],
+                if (planState.hasError) ...[
+                  const Text('No pudimos consultar tu plan.'),
+                  TextButton(
+                    onPressed: () => ref.invalidate(currentPlanProvider),
+                    child: const Text('Reintentar'),
+                  ),
+                ],
                 if (!supported) ...[
                   const Text(
                     'El pago de prueba de Familia está disponible en Android.',
                   ),
                   const SizedBox(height: 16),
                 ],
-                const _PlanCard(
+                _PlanCard(
                   name: 'Casa',
                   price: 'Gratis',
                   benefits: [
@@ -65,7 +78,9 @@ class PlansPage extends ConsumerWidget {
                     'Tareas personalizadas',
                     'Historial de actividad',
                   ],
-                  buttonLabel: 'Plan actual',
+                  buttonLabel: plan == AccountPlan.casa
+                      ? 'Plan actual'
+                      : 'Gratis',
                 ),
                 const SizedBox(height: 16),
                 _PlanCard(
@@ -75,23 +90,33 @@ class PlansPage extends ConsumerWidget {
                     'Hasta tres ciclos simultáneos',
                     'Para casa, escuela y actividades familiares',
                   ],
-                  buttonLabel: payment.isLoading
+                  buttonLabel: plan == AccountPlan.familia
+                      ? 'Plan actual'
+                      : payment.isLoading
                       ? 'Preparando pago…'
                       : 'Probar pago',
-                  onPressed: !supported || payment.isLoading
+                  onPressed:
+                      !supported ||
+                          payment.isLoading ||
+                          planState.isLoading ||
+                          planState.hasError ||
+                          plan == null ||
+                          plan == AccountPlan.familia
                       ? null
                       : () =>
                             ref.read(familyPaymentProvider.notifier).checkout(),
                 ),
                 const SizedBox(height: 16),
-                const _PlanCard(
+                _PlanCard(
                   name: 'Comunidad',
                   price: '\$69 MXN / mes',
                   benefits: [
                     'Hasta diez ciclos simultáneos',
                     'Resúmenes de participación',
                   ],
-                  buttonLabel: 'Probar pago',
+                  buttonLabel: plan == AccountPlan.comunidad
+                      ? 'Plan actual'
+                      : 'Probar pago',
                 ),
               ],
             ),

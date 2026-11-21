@@ -104,8 +104,10 @@ todavía no participas en un ciclo, puedes alternar entre esas dos pantallas.
 | **Familia** | $39 MXN al mes | Propuesta de hasta tres ciclos simultáneos para casa, escuela y actividades familiares. |
 | **Comunidad** | $69 MXN al mes | Propuesta de hasta diez ciclos simultáneos y resúmenes de participación. |
 
-Casa aparece como **Plan actual** y representa las funciones disponibles
-en la app. La pantalla presenta los beneficios de pago como propuesta.
+Al abrir la pantalla se consulta tu suscripción. La modalidad activa aparece
+como **Plan actual** y su botón está desactivado. Si no tienes una suscripción
+activa, se marca Casa. Los beneficios de pago siguen siendo una propuesta.
+Si falla la consulta, pulsa **Reintentar** antes de intentar pagar.
 
 ### Probar el pago de Familia en Android
 
@@ -118,7 +120,8 @@ en la app. La pantalla presenta los beneficios de pago como propuesta.
 
 Puedes cerrar el formulario para cancelar el intento. Si vuelves a abrirlo,
 se recupera el pago pendiente. Si ya completaste la suscripción de prueba,
-la app te avisa que está activa. Quien administra el proyecto puede ver
+Familia muestra **Plan actual**, incluso al volver a abrir la pantalla o
+iniciar sesión en otro dispositivo con la misma cuenta. Quien administra el proyecto puede ver
 y cancelar esa suscripción desde el panel de pruebas de Stripe.
 
 En Chrome y Edge se muestra el catálogo. El formulario nativo de esta etapa
