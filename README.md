@@ -4,6 +4,8 @@ Aplicación Flutter para organizar tareas domésticas por ciclos. Cada persona
 registra su trabajo y otro miembro lo revisa. Las tareas aprobadas suman
 puntos en la clasificación del ciclo. Supabase gestiona datos, acceso y
 fotos de perfil. Firebase entrega avisos móviles y aloja la versión web.
+Las cuentas que entran sin ciclo reciben una introducción guiada de seis pasos,
+que también puede abrirse desde Perfil → Ver tutorial.
 En Android, agitar el celular en Tareas sugiere una tarea disponible mediante
 el acelerómetro; el registro sigue siendo manual. Perfil incluye Lugares útiles
 con un catálogo fijo de Celaya; el mapa Android requiere configurar su clave.

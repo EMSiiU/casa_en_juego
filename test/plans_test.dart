@@ -74,6 +74,10 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      if (!hasCycle) {
+        await tester.tap(find.text('Omitir'));
+        await tester.pumpAndSettle();
+      }
       final container = ProviderScope.containerOf(
         tester.element(find.byType(CasaEnJuegoApp)),
       );

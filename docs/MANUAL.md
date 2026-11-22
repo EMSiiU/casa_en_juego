@@ -24,6 +24,8 @@ flowchart LR
     Router["go_router"] --> UI["Pantallas y formularios Flutter"]
     UI --> State["Proveedores y controladores Riverpod"]
     State --> Repo["Repositorios de cada módulo"]
+    State --> Intro["OnboardingSessionController · invitación por sesión"]
+    Intro --> Welcome["Perfil · diálogo de bienvenida de seis pasos"]
     Sensor["Acelerómetro Android · sensors_plus"] --> Shake["shakeEventsProvider · ShakeDetector"]
     Shake --> UI
     State -->|"Sesión y membresía"| Router
@@ -1129,8 +1131,8 @@ de tipos Deno aprobada. Los tests comprueban el precio de Comunidad elegido
 en el servidor, la reutilización de facturas, el bloqueo entre ambos planes
 en estados activos, la revisión de pagos pendientes y la contratación tras
 cancelar. Flutter comprueba ambos recorridos de pago, el bloqueo de ambos
-botones y la consulta del plan. La prueba real de Comunidad queda pendiente
-del secreto y del despliegue en el proyecto del responsable.
+botones y la consulta del plan. El responsable confirmó después el pago de Comunidad y la recuperación del
+flujo tras eliminar al cliente de pruebas, con el handler actualizado.
 
 ## 8. Rúbrica del proyecto final
 
@@ -1138,18 +1140,18 @@ del secreto y del despliegue en el proyecto del responsable.
 |---|---|
 | Problemática, objetivo y alcance | Parcial. Hay un [planteamiento](../planteamiento.md). Falta incluir evidencia del problema y el alcance acordado con el maestro. |
 | Base de datos y sincronización | Supabase PostgreSQL aprobado por el maestro para datos y autenticación. Flutter vuelve a consultar después de las operaciones y en puntos de refresco de cada pantalla; los avisos privados también pueden invalidar consultas. La app carece de una suscripción general a Supabase Realtime. |
-| Almacenamiento y caché local de imágenes | Supabase Storage privado guarda la foto personal. Android e iOS conservan la copia por cuenta y la muestran al reabrir sin conexión cuando hay una sesión guardada. Queda pendiente confirmar la aceptación de Supabase Storage para este requisito. |
+| Almacenamiento y caché local de imágenes | Supabase Storage privado guarda la foto personal. Android e iOS conservan la copia por cuenta y la muestran al reabrir sin conexión cuando hay una sesión guardada. El uso de Supabase Storage se considera aceptado en la auditoría del proyecto. |
 | FCM desde consola, Topics y tres estados | Hay escuchador global y suscripción al Topic `avisos_generales`. El responsable reportó recepción desde Firebase Console. Falta registrar evidencia de los tres estados y de la baja del tema. |
 | Auth, alta por correo y dos proveedores | Implementado. Incluye registro, verificación, reenvío, recuperación por correo y acceso con Google y GitHub mediante Supabase Auth. El responsable del proyecto reportó que funcionaron el correo y ambos proveedores en su entorno. |
 | Perfil y avatar sincronizado | Nombre editable, restricción de edición a cuentas creadas por correo y caché local implementados. El responsable reportó que las fotos y el uso sin conexión funcionaron en el celular. |
 | Creación y acceso a ciclos | Implementados la creación, el ingreso mediante código y el historial tras el cierre. Cada cuenta tiene una sola membresía activa. Queda pendiente la salida individual durante un ciclo activo. |
 | Estado con Riverpod | Implementado. Las ocho llamadas explícitas a `setState` fueron sustituidas. La búsqueda en `lib/` tampoco encontró usos explícitos de `ValueNotifier`. |
 | Tipografía y tema dinámico | Implementados. DM Sans viene incluida con la app y Perfil permite cambiar y recordar el modo claro u oscuro. |
-| Bienvenida | Pantalla inicial aplazada. El [manual de usuario](manual%20de%20usuario.md) explica los flujos disponibles. |
+| Bienvenida | Implementada: diálogo guiado de seis pasos, automático al entrar sin ciclo en cada nueva sesión y manual desde Perfil → Ver tutorial. Incluye navegación, omisión, adaptación a texto grande y reinicio por sesión sin persistencia. |
 | Responsividad y widget avanzado | Parcial. Hay límites de ancho y pruebas en pantallas pequeñas. La adaptación a escritorio debe validarse. La gráfica de Ranking es candidata al 10% si el maestro la acepta. |
-| Sensor nativo | Implementado: acelerómetro Android para sugerir tareas al agitar, con filtros, manejo de errores y ciclo de vida. Falta comprobar el gesto en el RMX3840. Biometría no forma parte del alcance elegido. |
+| Sensor nativo | Implementado: acelerómetro Android para sugerir tareas al agitar, con filtros, manejo de errores y ciclo de vida. El responsable confirmó que funciona en el RMX3840. Biometría no forma parte del alcance elegido. |
 | Mapa nativo | Código implementado: Google Maps Android, ubicación puntual, catálogo fijo de Celaya, filtros y manejo de errores/permisos. Clave configurada y mapa visible en el RMX3840, confirmado por el responsable. No usa Places API ni búsquedas comerciales. |
-| Pagos o suscripciones | Catálogo de tres modalidades y suscripciones Familia y Comunidad con PaymentSheet para Android. El responsable confirmó Familia y su consulta de plan en el celular. Comunidad comparte ahora el flujo nativo; faltan configurar su precio en Supabase, desplegar los dos archivos actualizados y comprobar su pago en el teléfono. Los beneficios anunciados se mantienen como propuesta. |
+| Pagos o suscripciones | Catálogo de tres modalidades y suscripciones Familia y Comunidad con PaymentSheet para Android. El responsable confirmó pagos de Familia y Comunidad, consulta del plan y recuperación del pago tras eliminar al cliente de pruebas. Las cancelaciones se gestionan en Stripe. Los beneficios anunciados se mantienen como propuesta. |
 | Entrega y estabilidad | Parcial. Hay Git, pruebas y documentación. Faltan el reporte final, APK de entrega y ensayo completo. |
 
 ## 9. Cómo ejecutar y probar
@@ -1633,3 +1635,90 @@ recorrer también las tarjetas que quedan fuera del primer viewport; comprueba
 los tres filtros a 320 y 1100 píxeles con los siete registros. La comprobación
 geográfica corresponde a la tabla de fuentes; las pruebas automatizadas
 verifican el filtrado y la presentación del catálogo.
+
+
+### 11.13 Bienvenida guiada (onboarding)
+
+El usuario acordó mostrarla siempre que una cuenta entre sin un ciclo activo,
+y mantener un acceso manual. La secuencia es un único `AlertDialog` cuyo
+contenido cambia; no se apilan ventanas, no tiene ruta propia y no bloquea
+crear/unirse después de cerrarla. Su tema y fuente proceden de MaterialApp.
+
+| Archivo | Funciones y responsabilidad |
+|---|---|
+| `lib/features/onboarding/providers/onboarding_session_provider.dart` | `OnboardingSessionController.build()` observa `currentUserProvider`. Guarda en memoria el id de la cuenta actual y, como estado, el id pendiente de bienvenida. `markShown(accountId)` consume esa invitación sin modificar la sesión ni el perfil. |
+| `lib/features/onboarding/presentation/onboarding_dialog.dart` | `_steps` define icono, título y texto de los seis pasos. `_StepController` controla el índice con Riverpod; `next()` y `previous()` respetan los límites. `showOnboardingDialog()` crea una secuencia con estado nuevo por apertura. `_OnboardingDialog.build()` dibuja paso, contenido y botones, y cierra el diálogo si cambia la cuenta o termina la sesión. |
+| `lib/main.dart` | `CasaEnJuegoApp.build()` observa el controlador de bienvenida para inicializar el seguimiento de la sesión desde el arranque, incluso si la primera pantalla es Tareas. No recrea el router ni añade navegación paralela. |
+| `lib/features/profile/presentation/profile_page.dart` | `build()` programa la apertura automática tras cargar el perfil de la cuenta elegible. `_presentTutorial()` vuelve a comprobar cuenta y ruta, consume la invitación automática y abre el diálogo. `_openTutorial()` permite abrirlo desde Ver tutorial. `_tutorialBusy` evita aperturas simultáneas o callbacks duplicados; es una guarda imperativa, no estado visual. |
+
+**Regla por sesión.** El controlador no es `autoDispose`: sigue observando Auth
+al salir de Perfil. Un primer usuario sin membresía, una identidad diferente o
+un ingreso después de un valor nulo generan una invitación si la nueva cuenta
+no tiene ciclo. Una cuenta que entra con ciclo no recibe invitación automática.
+Los refrescos, cargas y errores temporales no reinician esta decisión. Si la
+cuenta adquiere una membresía, se cancela cualquier invitación pendiente.
+Cerrar un ciclo en la misma sesión no crea otra bienvenida automática.
+
+Al arrancar o recargar la app se crea un controlador nuevo. Si Supabase restaura
+una sesión sin ciclo, se muestra la introducción. No se usa SharedPreferences,
+Storage, archivos ni una marca en Supabase: el usuario quiere poder volver a
+verla al entrar, incluyendo la presentación académica. No se modifica el flujo
+de correo, Google o GitHub; todos terminan en el mismo `currentUserProvider`.
+
+```mermaid
+flowchart TD
+    A["Auth · primera identidad o nueva sesión"] --> B{"¿Cuenta sin ciclo?"}
+    B -->|Sí| C["Invitación pendiente con id de cuenta"]
+    B -->|No| D["Navegación habitual"]
+    C --> E["Perfil cargado y ruta actual"]
+    E --> F["Consumir invitación y abrir paso 1"]
+    F --> G["Siguiente / Atrás · mismo diálogo"]
+    G --> H["Omitir o Cerrar"]
+    H --> I["Permanecer en Perfil · no repetir por navegación"]
+    I --> J["Cerrar sesión"]
+    J --> A
+    K["Perfil → Ver tutorial"] --> L["Abrir paso 1 con estado nuevo"]
+    L --> G
+```
+
+**Contenido.** Bienvenida; crear/unirse con código; registrar/revisar tareas;
+agitar en Android para sugerir una tarea sin registrarla; Ranking/Mi actividad;
+y cierre por el administrador desde Cuidar del equipo con resultados históricos.
+El siguiente ciclo empieza independiente, con catálogo base y código nuevo.
+
+**Presentación y cierre.** El primer paso ofrece Omitir y Siguiente. Los pasos
+intermedios añaden Atrás. El sexto solo tiene Cerrar, conforme a lo solicitado.
+El fondo no cierra accidentalmente el diálogo; el botón Atrás del sistema puede
+cerrarlo y cuenta como una omisión en esa sesión. La invitación se consume al
+abrir, de modo que navegar o refrescar no la repita. Cada apertura manual
+crea un ProviderScope con un `_StepController` nuevo y empieza en cero.
+
+El cuadro es desplazable y limita su ancho a 500 píxeles. AlertDialog adapta
+sus acciones cuando falta ancho. No se programan animaciones, dependencias ni
+permisos nuevos. La secuencia únicamente informa: no finaliza ciclos, no envía
+tareas, no cambia membresías ni solicita biometría. Al cerrarla se conserva la
+pantalla que estaba debajo. El diálogo evita permanecer sobre otra cuenta
+cuando Auth informa un cierre o un cambio de identidad.
+
+**Verificación.** `test/onboarding_test.dart` cubre la secuencia completa,
+retroceso, omisión, solo Cerrar al final, repetición tras volver a iniciar
+sesión, ausencia de repetición al refrescar/navegar, consulta manual con ciclo,
+cierre por cambio de sesión y diseño a 320×568 con texto al doble y ambos temas.
+Las pruebas existentes de Perfil y Planes omiten la bienvenida antes de continuar
+sus recorridos; el registro por correo comprueba que aparece tras confirmar.
+No se reemplaza la prueba funcional de bienvenida por un flag deshabilitado.
+
+Para la prueba en el RMX3840: salir de la cuenta, entrar con una sin ciclo,
+recorrer los seis pasos y cerrar. Navegar y volver a Perfil no debe abrirla
+otra vez. Cerrar sesión y entrar con la misma cuenta sí debe mostrarla de
+nuevo. Omitir debe funcionar; Ver tutorial debe iniciar en el paso uno para
+cualquier cuenta. La comprobación en el teléfono queda pendiente del responsable.
+
+
+Verificación local de la bienvenida: 164 pruebas Flutter aprobadas, incluidas
+siete pruebas específicas de onboarding, análisis Dart sin hallazgos y
+compilación web completada. El tamaño pequeño y el texto grande se comprobaron
+con ambos temas. No se añadieron dependencias, migraciones, secretos ni marcas
+persistentes para esta funcionalidad.
+El APK Android también compiló y se instaló en el RMX3840 con la configuración
+local del mapa. Queda pendiente la validación visual del tutorial en ese equipo.

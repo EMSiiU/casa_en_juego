@@ -82,7 +82,7 @@ migraciones, incluidos los ámbitos y archivos históricos de los ciclos.
 * **Recordatorios diarios:** a las 18:00 y 20:00 de `America/Mexico_City`, avisar al usuario sin solicitudes propias pendientes o aprobadas registradas ese día. Requieren preferencia activa, dispositivo registrado y temporada activa. Se vuelve a comprobar la actividad antes de enviar; una tarea entre ambos horarios evita el segundo aviso. Los rechazados no cuentan como actividad válida. El recordatorio abre Tareas, se deduplica por dispositivo, día y horario y vence a los 30 minutos. Activación en `docs/inactivity_reminders_setup.md`.
 * La cola permite reintentos sin depender de que el usuario mantenga abierta la app. La entrega Android/iOS requiere configurar Firebase y desplegar la Edge Function; push web queda fuera de esta integración móvil.
 
-1. **Registro personal:** Cada persona crea su cuenta por correo o entra con Google o GitHub. Una cuenta sin ciclo activo abre Perfil y puede consultar Planes.
+1. **Registro personal:** Cada persona crea su cuenta por correo o entra con Google o GitHub. Una cuenta sin ciclo activo abre Perfil y puede consultar Planes. En cada nueva sesión sin ciclo se presenta una bienvenida guiada de seis pasos, con Siguiente, Atrás, Omitir y Cerrar al final. No vuelve a mostrarse al navegar en la misma sesión. Perfil → Ver tutorial permite abrirla manualmente con o sin ciclo.
 2. **Registro de Tareas:** Un usuario selecciona una tarea. El sistema crea un `task_log` `pending` (hora del servidor). Los puntos no se suman hasta ser aprobados.
    * Las tareas limitadas solo permiten una solicitud pendiente o aprobada por persona, tarea y día. Se renuevan a las 00:00 de Ciudad de México. Cada ciclo nuevo recibe copias independientes del catálogo. Una solicitud rechazada permite reenviar ese mismo día. Supabase impone esta regla también ante envíos simultáneos.
    * Inicialmente se limitan barrer, lavar/limpiar baños, tender/hacer la cama y limpiar/ordenar mis cosas cuando existan en el catálogo. Las demás tareas son repetibles; administración puede cambiar la frecuencia.
@@ -141,6 +141,7 @@ lib/
 │   ├── network/
 │   └── utils/
 ├── features/
+│   ├── onboarding/             # Bienvenida guiada por sesión y acceso manual desde Perfil
 │   ├── auth/
 │   ├── tasks/                  # Pantalla 'Tareas' y widget BottomSheet de confirmación
 │   ├── activity/               # Pantalla 'Mi actividad' (historial propio)

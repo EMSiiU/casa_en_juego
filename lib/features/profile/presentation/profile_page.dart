@@ -15,6 +15,8 @@ import '../models/profile_failure.dart';
 import '../models/profile_state.dart';
 import '../providers/profile_providers.dart';
 import '../../notifications/presentation/notification_status_tile.dart';
+import '../../onboarding/presentation/onboarding_dialog.dart';
+import '../../onboarding/providers/onboarding_session_provider.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({super.key});
@@ -24,6 +26,35 @@ class ProfilePage extends ConsumerStatefulWidget {
 
 class _ProfilePageState extends ConsumerState<ProfilePage> {
   late final AppLifecycleListener _lifecycle;
+  bool _tutorialBusy = false;
+
+  Future<void> _presentTutorial({String? automaticAccount}) async {
+    try {
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      final user = ref.read(currentUserProvider).asData?.value;
+      if (user == null) return;
+      if (automaticAccount != null) {
+        if (user.id != automaticAccount ||
+            user.isHouseholdMember ||
+            ref.read(onboardingSessionProvider) != automaticAccount) {
+          return;
+        }
+        ref
+            .read(onboardingSessionProvider.notifier)
+            .markShown(automaticAccount);
+      }
+      await showOnboardingDialog(context, accountId: user.id);
+    } finally {
+      _tutorialBusy = false;
+    }
+  }
+
+  void _openTutorial() {
+    if (_tutorialBusy) return;
+    _tutorialBusy = true;
+    _presentTutorial();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -59,6 +90,18 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final profile = ref.watch(profileProvider);
     final authAction = ref.watch(authControllerProvider);
     final sessionUser = ref.watch(currentUserProvider).asData?.value;
+    final tutorialAccount = ref.watch(onboardingSessionProvider);
+    if (!_tutorialBusy &&
+        tutorialAccount != null &&
+        !authAction.isLoading &&
+        profile.asData?.value.user.id == tutorialAccount &&
+        sessionUser?.isHouseholdMember == false &&
+        ModalRoute.of(context)?.isCurrent == true) {
+      _tutorialBusy = true;
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _presentTutorial(automaticAccount: tutorialAccount),
+      );
+    }
     final isDark = ref.watch(themeModeProvider) == ThemeMode.dark;
     return Scaffold(
       appBar: const AppPageBar(title: 'Tu perfil'),
@@ -449,6 +492,15 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 onTap: isSigningOut
                     ? null
                     : () => context.pushNamed('usefulPlaces'),
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.help_outline,
+                  color: context.appColors.primary,
+                ),
+                title: const Text('Ver tutorial'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: canEdit ? _openTutorial : null,
               ),
               if (user.isHouseholdMember) ...[
                 SwitchListTile.adaptive(

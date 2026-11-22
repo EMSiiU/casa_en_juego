@@ -182,6 +182,8 @@ void main() {
     expect(auth.resentEmail, 'elena@example.com');
     await tester.enterText(input('Código del correo'), '123456');
     await tapText(tester, 'Confirmar correo');
+    expect(find.text('Bienvenido a Casa en Juego'), findsOneWidget);
+    await tapText(tester, 'Omitir');
     expect(auth.confirmedCode, '123456');
     expect(find.text('Aún no tienes un ciclo'), findsOneWidget);
     expect(

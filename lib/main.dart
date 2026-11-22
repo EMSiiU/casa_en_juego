@@ -10,6 +10,7 @@ import 'core/theme/theme_mode_provider.dart';
 import 'features/notifications/presentation/notification_host.dart';
 import 'features/notifications/providers/notification_providers.dart';
 import 'features/notifications/repositories/push_gateway.dart';
+import 'features/onboarding/providers/onboarding_session_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,6 +39,8 @@ class CasaEnJuegoApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Observa la sesión también cuando el usuario entra directamente a Tareas.
+    ref.watch(onboardingSessionProvider);
     return NotificationHost(
       child: MaterialApp.router(
         title: 'Casa en Juego',

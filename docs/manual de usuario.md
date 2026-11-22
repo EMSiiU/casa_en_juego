@@ -6,6 +6,25 @@ Casa en Juego te ayuda a organizar las tareas de casa. En cada ciclo, las person
 
 Si ya tienes cuenta, escribe tu correo y contraseña y pulsa **Iniciar sesión**. También puedes elegir **Continuar con Google** o **Continuar con GitHub**.
 
+### Tutorial de bienvenida
+
+Si entras con una cuenta sin ciclo activo, aparece una introducción sobre
+Perfil. Tiene seis pasos: bienvenida, crear o unirte a un ciclo, registrar y
+revisar tareas, agitar el celular para recibir una sugerencia, consultar tu
+progreso y finalizar un ciclo.
+
+Pulsa **Siguiente** para avanzar o **Atrás** para volver al paso anterior.
+Puedes usar **Omitir**; en el último paso aparece únicamente **Cerrar**.
+Después permaneces en Perfil para crear un ciclo o unirte con un código.
+El tutorial explica las acciones: no crea ciclos ni registra tareas por ti.
+
+Aparece de nuevo al cerrar sesión y entrar sin ciclo, aunque ya lo hayas visto.
+También puede aparecer al volver a abrir o recargar la app con la sesión
+restaurada y sin ciclo. No se repite por navegar entre pantallas o actualizar
+Perfil durante la misma sesión. Finalizar un ciclo no lo abre automáticamente.
+Para consultarlo cuando quieras, entra a **Perfil → Ver tutorial**, incluso si
+ya participas en un ciclo. Cada apertura empieza en el primer paso.
+
 ### Crear una cuenta por correo
 
 1. Pulsa **Crear cuenta**.

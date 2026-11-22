@@ -200,6 +200,8 @@ void main() {
       user: formerAdmin,
       location: '/profile',
     );
+    expect(find.text('Bienvenido a Casa en Juego'), findsOneWidget);
+    await tapVisible(tester, 'Omitir');
     await tapVisible(tester, 'Historial de ciclos');
     await tapVisible(tester, 'Octubre 2026');
     expect(find.text('Ganador del ciclo'), findsOneWidget);

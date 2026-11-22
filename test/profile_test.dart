@@ -43,6 +43,7 @@ Future<ProviderContainer> startProfile(
   AccountPhotoCache? photoCache,
   Future<ProfilePhoto?> Function()? pickPhoto,
   FakeAdminRepository? admin,
+  bool dismissTutorial = true,
 }) async {
   final authRepository = auth ?? (FakeAuthRepository()..user = testUser);
   addTearDown(authRepository.events.close);
@@ -71,6 +72,10 @@ Future<ProviderContainer> startProfile(
   );
   container.read(appRouterProvider).go('/profile');
   await tester.pumpAndSettle();
+  if (dismissTutorial && find.text('Omitir').evaluate().isNotEmpty) {
+    await tester.tap(find.text('Omitir'));
+    await tester.pumpAndSettle();
+  }
   return container;
 }
 
