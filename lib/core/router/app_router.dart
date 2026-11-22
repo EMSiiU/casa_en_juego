@@ -17,6 +17,7 @@ import '../../features/admin/presentation/cycle_history_page.dart';
 import '../../features/admin/presentation/task_catalog_page.dart';
 import '../../features/admin/presentation/task_editor_page.dart';
 import '../../features/plans/presentation/plans_page.dart';
+import '../../features/places/presentation/useful_places_page.dart';
 import '../theme/app_page_bar.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -48,6 +49,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         final isAccountPage =
             path == '/profile' ||
             path == '/plans' ||
+            path == '/profile/lugares' ||
             path == '/admin' ||
             path == '/tasks/activity' ||
             path == '/profile/ciclos' ||
@@ -99,6 +101,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'profile',
         builder: (context, state) => const ProfilePage(),
         routes: [
+          GoRoute(
+            path: 'lugares',
+            name: 'usefulPlaces',
+            builder: (context, state) => const UsefulPlacesPage(),
+          ),
           GoRoute(
             path: 'ciclos',
             name: 'cycleHistory',

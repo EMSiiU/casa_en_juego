@@ -13,8 +13,9 @@ conservan al terminar y cada ciclo nuevo empieza con su propio catálogo.
 El maestro aprobó usar Supabase para datos y autenticación, y Firebase para
 avisos. La entrega es el domingo 22 de noviembre de 2026. La pantalla de
 Planes presenta Casa, Familia y Comunidad. Familia y Comunidad integran
-suscripciones de prueba de Stripe con formulario nativo en Android. El mapa
-y la cancelación de suscripciones dentro de la app forman parte del trabajo pendiente.
+suscripciones de prueba de Stripe con formulario nativo en Android. El mapa Android de lugares útiles utiliza un catálogo local de Celaya y requiere
+configurar una clave de Google Maps. La cancelación de suscripciones dentro
+de la app forma parte del trabajo pendiente.
 
 ## 2. Arquitectura y tecnologías
 
@@ -36,12 +37,16 @@ flowchart LR
     FCM --> Host["NotificationHost sobre la app"]
     Host --> State
     Hosting["Firebase Hosting"] --> Web["Compilación Flutter web"]
+    UI --> Places["Lugares útiles · catálogo local y filtros"]
+    Places --> Maps["Google Maps SDK · Android"]
+    Places --> GPS["geolocator · ubicación puntual del dispositivo"]
 ```
 
 | Componente | Responsabilidad | Dónde estudiarlo |
 |---|---|---|
 | Flutter y Dart | Pantallas para Android, iOS y web. Los módulos se organizan por funcionalidad. | [lib/main.dart](../lib/main.dart), [pubspec.yaml](../pubspec.yaml) |
 | Stripe y flutter_stripe | PaymentSheet captura la tarjeta en Android y Stripe gestiona la suscripción de prueba. | [Guía de Stripe](stripe_test_setup.md), [family_payment_repository.dart](../lib/features/plans/repositories/family_payment_repository.dart) |
+| google_maps_flutter 2.19.0 y geolocator 14.1.2 | Mapa nativo Android, marcadores del catálogo de Celaya y lectura puntual de ubicación con permisos. | [Configuración del mapa](maps_setup.md), `lib/features/places/` |
 | sensors_plus 7.1.1 | Lee aceleración sin gravedad en Android; los impulsos generan sugerencias locales de tareas. | `providers/shake_provider.dart`, `services/shake_detector.dart` del módulo Tareas |
 | Riverpod | Estado de formularios, sesión, consultas, acciones, reintentos e invalidación de datos. | Carpetas `providers/` de cada módulo y proveedores locales de los formularios |
 | go_router | Navegación, restauración de sesión y protección de páginas administrativas. | [app_router.dart](../lib/core/router/app_router.dart) |
@@ -626,7 +631,7 @@ liberación de participantes y el acceso al historial con y sin participación.
 Se incorpora `sensors_plus: 7.1.1`. Se conserva Riverpod y no se añade ninguna
 llamada a `setState` ni `ValueNotifier`. El sensor únicamente propone una tarea;
 no llama a Supabase ni modifica solicitudes, puntos o reglas del ciclo.
-El bloque del mapa se mantiene pendiente y separado.
+El mapa se implementa como bloque independiente del sensor de movimiento.
 
 ```mermaid
 flowchart TD
@@ -687,7 +692,7 @@ sensores; Chrome no reemplaza la comprobación del acelerómetro del celular.
 impulsos separados, pausa entre gestos, filtrado del catálogo, sugerencia sin
 registro, ausencia de diálogos apilados, registro manual ante fallo y
 cancelación/reanudación de la lectura al cambiar el estado de la aplicación.
-La prueba física del RMX3840 queda pendiente del responsable; las lecturas de
+El responsable confirmó que el gesto funciona en el RMX3840; las lecturas de
 las pruebas automatizadas se sustituyen por streams controlados.
 
 Verificación local de esta etapa: 147 pruebas Flutter aprobadas, análisis Dart
@@ -1143,7 +1148,7 @@ del secreto y del despliegue en el proyecto del responsable.
 | Bienvenida | Pantalla inicial aplazada. El [manual de usuario](manual%20de%20usuario.md) explica los flujos disponibles. |
 | Responsividad y widget avanzado | Parcial. Hay límites de ancho y pruebas en pantallas pequeñas. La adaptación a escritorio debe validarse. La gráfica de Ranking es candidata al 10% si el maestro la acepta. |
 | Sensor nativo | Implementado: acelerómetro Android para sugerir tareas al agitar, con filtros, manejo de errores y ciclo de vida. Falta comprobar el gesto en el RMX3840. Biometría no forma parte del alcance elegido. |
-| Mapa nativo | Pendiente; se trabajará como bloque independiente del sensor. |
+| Mapa nativo | Código implementado: Google Maps Android, ubicación puntual, catálogo fijo de Celaya, filtros y manejo de errores/permisos. Clave configurada y mapa visible en el RMX3840, confirmado por el responsable. No usa Places API ni búsquedas comerciales. |
 | Pagos o suscripciones | Catálogo de tres modalidades y suscripciones Familia y Comunidad con PaymentSheet para Android. El responsable confirmó Familia y su consulta de plan en el celular. Comunidad comparte ahora el flujo nativo; faltan configurar su precio en Supabase, desplegar los dos archivos actualizados y comprobar su pago en el teléfono. Los beneficios anunciados se mantienen como propuesta. |
 | Entrega y estabilidad | Parcial. Hay Git, pruebas y documentación. Faltan el reporte final, APK de entrega y ensayo completo. |
 
@@ -1506,3 +1511,125 @@ acceso al proyecto desplegado. Las confirmaciones de uso de
 Android y del proyecto remoto proceden de las pruebas del responsable del
 proyecto. El inventario de esta revisión permite una limpieza pequeña
 sin reestructurar la aplicación ni eliminar su historial.
+
+
+### 11.12 Lugares útiles
+
+Rutas relativas a `lib/features/places/`. El módulo no depende de repositorios
+Supabase ni de una membresía de ciclo. La ruta `/profile/lugares`, nombre
+`usefulPlaces`, se agrega como hija de Perfil y exige una cuenta autenticada;
+el guard permite entrar también a cuentas sin ciclo. `ProfilePage` añade el
+acceso Lugares útiles con el mismo patrón de sus otros accesos.
+
+| Archivo | Funciones y responsabilidad |
+|---|---|
+| `models/useful_place.dart` | `UsefulPlace` contiene id, nombre, dirección, categoría y posición. `PlaceCategory` define los tres filtros con etiquetas en español. |
+| `data/celaya_places.dart` | `celayaCenter` es el centro de referencia. `celayaPlaces` contiene siete registros constantes: un reciclaje, tres lavanderías y tres tiendas de limpieza, sin llamadas de búsqueda ni escrituras. Fuentes en la guía de mapas. |
+| `providers/places_providers.dart` | `nativeMapEnabledProvider` exige Android y clave de compilación. `placesCatalogProvider` expone el catálogo. `PlaceCategoryController.select()` cambia el filtro; `filteredPlacesProvider` calcula la lista visible. `deviceLocationProvider` solicita una ubicación y no reintenta automáticamente. |
+| `services/device_location.dart` | `DeviceLocation.currentPosition()` comprueba servicio, permisos y obtiene la posición con un límite de 15 s. `LocationFailure` distingue servicio apagado, denegación temporal/permanente y fallo recuperable. `openSettings()` abre ajustes del servicio o de la app según el caso. |
+| `presentation/useful_places_page.dart` | `UsefulPlacesPage` muestra filtros, mapa acotado, estado de ubicación y lista. `_moveTo()` centra la cámara; `_openSettings()` maneja el fallo al abrir ajustes. El registro local `_controller` es una referencia imperativa al mapa, sin `setState` ni `ValueNotifier`. |
+
+```mermaid
+sequenceDiagram
+    actor U as Usuario
+    participant P as Perfil / UsefulPlacesPage
+    participant R as Riverpod
+    participant G as Geolocator / Android
+    participant M as Google Maps nativo
+    U->>P: Abrir Lugares útiles
+    P->>R: Leer catálogo local y categoría
+    P->>G: Comprobar servicio y solicitar permiso
+    alt Lectura autorizada y disponible
+        G-->>R: Latitud y longitud actual
+        R-->>P: AsyncData
+        P->>M: Centrar cámara y marcador Mi ubicación
+    else Servicio apagado, permiso denegado o error
+        G-->>R: LocationFailure
+        R-->>P: AsyncError
+        P->>M: Mantener centro de Celaya
+    end
+    U->>P: Cambiar filtro
+    R-->>P: Establecimientos locales de esa categoría
+    P->>M: Actualizar marcadores con nombre y dirección
+```
+
+La pantalla empieza con el centro de Celaya mientras espera la ubicación.
+Cuando llega la lectura, `ref.listen(deviceLocationProvider)` mueve la cámara.
+Si el SDK tarda más, `onMapCreated` consulta el estado actual y centra la cámara
+al crearse. Si el usuario está en otra ciudad, se respeta su posición; Ver
+Celaya vuelve al catálogo. Mi ubicación invalida únicamente la consulta de
+posición. No se sigue al usuario continuamente ni se guardan coordenadas en
+Supabase, archivos o preferencias. La posición aproximada es aceptada.
+
+Si el permiso está bloqueado o el servicio apagado, Abrir ajustes facilita
+corregirlo; al volver se pulsa Mi ubicación. La lista sigue utilizable ante
+fallos, ausencia de resultados o falta de soporte. El SDK conserva su atribución
+en el mapa. `GoogleMap` gestiona el ciclo de vida de su vista/controlador; la
+pantalla no mantiene un servicio de localización en segundo plano.
+
+Android añade ACCESS_COARSE_LOCATION y ACCESS_FINE_LOCATION. La clave se pasa
+con `--dart-define-from-file=maps.local.json`. `android/app/build.gradle.kts`
+decodifica `dart-defines` y completa el placeholder `mapsApiKey` del manifest.
+Dart comprueba la misma variable antes de construir GoogleMap, evitando abrir
+una vista sin clave. El JSON está ignorado por Git y no se crea con una clave
+copiada de otro proyecto. La restricción en Google Cloud requiere el paquete
+`com.example.casa_en_juego`, su SHA-1 de firma y Maps SDK for Android. No hace
+falta Places API ni una nueva Edge Function. La guía [maps_setup.md](maps_setup.md)
+incluye la configuración, comandos, fuentes del catálogo y prueba en el RMX3840.
+
+Web e iOS conservan catálogo y filtros. No se configura allí una clave, SDK de
+mapa ni permisos de ubicación en esta etapa. La compilación del APK no acredita
+por sí sola autorización de Google Maps ni una posición física correcta; esa
+comprobación queda pendiente de configurar la clave y ejecutar en el teléfono.
+
+`test/useful_places_test.dart` comprueba permiso inicial/existente, servicio
+apagado, denegación temporal/permanente, timeout, errores seguros, filtros,
+catálogo vacío y navegación desde Perfil sin ciclo. Las ubicaciones y permisos
+de estas pruebas están simulados y no acceden a Google Cloud.
+
+**Diagnóstico de ejecución sin clave.** Se comprobó que `maps.local.json` era
+válido, pero el manifest del APK instalado en el RMX3840 tenía vacío el valor
+de `com.google.android.geo.API_KEY`. El archivo local solo se incorpora mediante
+`--dart-define-from-file=maps.local.json`; la ejecución normal no lo lee.
+`.vscode/launch.json` añade dos perfiles: con mapa, que pasa ese argumento, y
+sin clave, para ejecutar el resto de la app. No contiene credenciales ni fija
+un dispositivo personal. Al cambiar la configuración es necesario recompilar
+e instalar el APK, no basta con hot reload o cerrar sesión.
+Se recompiló con el JSON y se instaló en el RMX3840. La inspección del manifest
+del APK instalado confirmó que ahora contiene la misma clave del archivo local,
+sin imprimirla ni incorporarla a Git. Esta comprobación verifica el empaquetado;
+el responsable confirmó después que el mapa aparece, verificando también la
+aceptación de la clave y la carga de mosaicos en el teléfono.
+
+
+Verificación local del módulo de lugares: 157 pruebas Flutter aprobadas,
+análisis Dart sin hallazgos y compilaciones Android/web completadas con las
+dependencias nuevas. Después de recompilar e instalar con la clave, el responsable confirmó que
+el mapa aparece en el RMX3840. Esa prueba acredita la carga del mapa y la
+autorización de la clave; la exactitud de la posición y de cada establecimiento
+se comprueba con los pasos de la guía.
+
+
+**Revisión cartográfica del catálogo, 21 de noviembre de 2026.** Se amplió de
+tres a siete registros: Paper Waste, Lavanita, Easy & Clean Nicolás Bravo,
+Aquamatic Parque Celaya y Don Pulcro en Francisco Juárez, La Capilla y Los
+Laureles. Se corrigió Paper Waste a Oriente 3 núm. 205 conforme al padrón
+estatal y al punto registral de esa dirección; el pin anterior quedaba unos
+5.2 km al norte. Se ajustó Lavanita al pin comercial publicado (unos 28 m del
+punto registral anterior) y se retiró Vengala 4003 al no corroborar su posición.
+Las sucursales de Don Pulcro usan las coordenadas del localizador oficial,
+contrastadas con sus fichas Waze. Las lavanderías adicionales tienen puntos
+coincidentes en las fichas consultadas. La tabla de fuentes y diferencias queda
+en [maps_setup.md](maps_setup.md). La revisión verifica coherencia entre fuentes
+públicas; no acredita una visita física ni precisión al metro.
+
+Solo cambia `data/celaya_places.dart`: los providers, filtros, marcadores y
+pantallas siguen consumiendo la misma lista constante. No se añaden llamadas
+web a la app, dependencias, tablas, permisos o consultas de Places API.
+
+Las diez pruebas del módulo de lugares pasaron tras ampliar el catálogo, y el
+análisis Dart terminó sin hallazgos. Se adaptó la prueba del listado para
+recorrer también las tarjetas que quedan fuera del primer viewport; comprueba
+los tres filtros a 320 y 1100 píxeles con los siete registros. La comprobación
+geográfica corresponde a la tabla de fuentes; las pruebas automatizadas
+verifican el filtrado y la presentación del catálogo.

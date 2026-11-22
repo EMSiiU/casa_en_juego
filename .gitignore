@@ -56,6 +56,8 @@ supabase/.temp/
 
 # Caché local de Firebase Hosting.
 .firebase/
+maps.local.json
+/android/build/
 firebase-debug.log*
 
 # Informe local de revisión; no forma parte de la entrega.

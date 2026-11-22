@@ -112,6 +112,28 @@ Al cerrar el ciclo, los participantes pueden crear otro o unirse con un código 
 - **Avisos generales.** Activa esta opción en **Perfil** para recibir anuncios de Casa en Juego en el celular. Puedes desactivarla desde el mismo lugar.
 - **Sesión.** Usa **Cerrar sesión** desde Perfil.
 
+### Consulta lugares útiles de Celaya
+
+1. Entra a **Perfil → Lugares útiles**. No necesitas participar en un ciclo.
+2. En Android, permite la ubicación mientras usas la app si deseas ver tu posición.
+3. Elige **Reciclaje**, **Lavanderías** o **Tiendas de limpieza**.
+4. Toca un marcador para consultar el nombre y la dirección. También puedes
+   leer los datos en la lista inferior y tocar un lugar para centrar el mapa.
+5. Usa **Mi ubicación** para volver a obtener tu posición y **Ver Celaya** para
+   regresar al área del catálogo.
+
+Los establecimientos pertenecen a una lista fija de referencia de Celaya:
+un punto de reciclaje, tres lavanderías y tres tiendas de limpieza.
+Mover el mapa o estar en otra ciudad no busca nuevos lugares. Si niegas el
+permiso, la ubicación está apagada o la lectura falla, puedes seguir viendo
+Celaya y sus establecimientos. Con **Abrir ajustes** puedes revisar el servicio
+o un permiso bloqueado; después regresa y pulsa **Mi ubicación**.
+
+Si una categoría no tiene lugares cargados, se indica en pantalla. El catálogo
+no incluye horarios ni confirma disponibilidad de servicios. En web e iOS se
+muestran la lista y los filtros; el mapa de esta etapa se utiliza en Android.
+El mapa necesita internet y debe estar configurado por quien administra la app.
+
 ## 6. Consulta los planes
 
 Pulsa **Planes**, a la derecha de **Perfil** en la barra inferior. Si

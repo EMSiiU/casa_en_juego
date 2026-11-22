@@ -24,6 +24,7 @@ la versión web. La configuración de iOS requiere validación en esa plataforma
 * **Gráficos:** Paquete `fl_chart` para visualización de progreso en barra horizontal.
 * **Estado y navegación:** Riverpod y `go_router`.
 * **Perfil:** Fotos privadas en Supabase Storage y caché de imágenes en el celular.
+* **Mapa:** Google Maps nativo en Android con `google_maps_flutter` y ubicación puntual con `geolocator`. Catálogo fijo de reciclaje, lavanderías y tiendas de limpieza en Celaya, sin Places API ni almacenamiento de la posición.
 * **Sensor:** Acelerómetro con `sensors_plus` en Android. Agitar el celular en Tareas sugiere una tarea activa disponible para esa cuenta; no registra solicitudes ni suma puntos.
 * **Planes:** Catálogo local de modalidades y suscripciones Familia y Comunidad en pruebas con Stripe PaymentSheet en Android. Supabase Edge Functions prepara el pago.
 
@@ -87,7 +88,7 @@ migraciones, incluidos los ámbitos y archivos históricos de los ciclos.
    * Inicialmente se limitan barrer, lavar/limpiar baños, tender/hacer la cama y limpiar/ordenar mis cosas cuando existan en el catálogo. Las demás tareas son repetibles; administración puede cambiar la frecuencia.
    * El catálogo incorpora iconos de cama, estante, tenis, ropa, cosas de hermanos y cosas personales.
    * Tareas, Ranking y Revisiones comparten un menú de cuenta para cerrar sesión; Perfil conserva su acceso propio.
-   * **Sugerencia al agitar (Android):** Dos impulsos del acelerómetro sugieren una tarea al azar del catálogo activo que no esté bloqueada ese día. La sugerencia se puede cerrar; el usuario realiza la tarea y luego la registra normalmente. El sensor se detiene en segundo plano y al dejar la pantalla. La falta de soporte no afecta al registro manual. El mapa queda como bloque independiente.
+   * **Sugerencia al agitar (Android):** Dos impulsos del acelerómetro sugieren una tarea al azar del catálogo activo que no esté bloqueada ese día. La sugerencia se puede cerrar; el usuario realiza la tarea y luego la registra normalmente. El sensor se detiene en segundo plano y al dejar la pantalla. La falta de soporte no afecta al registro manual. El mapa se mantiene independiente del sensor de movimiento.
 3. **Sistema de Revisiones Separado:**
    * **Mis solicitudes ("Mi actividad"):** El usuario puede ver el estado de sus propias tareas (Pendientes, Aprobadas, Rechazadas).
    * **Solicitudes de otros ("Revisiones"):** Los usuarios ven y deciden (Aprobar/Rechazar) sobre las tareas de los demás.
@@ -95,6 +96,8 @@ migraciones, incluidos los ámbitos y archivos históricos de los ciclos.
 5. **Administración del ciclo:** El creador administra solo el ciclo que creó. Puede editar el catálogo y finalizarlo. Al crear otro ciclo se eligen nombre y fecha prevista y se obtiene un catálogo nuevo. Los antiguos miembros se unen con el nuevo código.
 6. **Perfil:** Nombre editable, tema claro/oscuro y preferencias de avisos. Solo las cuentas creadas por correo pueden editar su foto. Las cuentas de Google y GitHub usan el avatar del proveedor cuando está disponible.
 7. **Planes:** Casa gratis, Familia a $39 MXN al mes y Comunidad a $69 MXN al mes. Familia anuncia hasta tres ciclos simultáneos y Comunidad hasta diez ciclos y resúmenes. Esos beneficios son una propuesta para la demostración académica. En Android, Familia y Comunidad abren la captura nativa de tarjeta de Stripe para pagar la primera factura de la suscripción de prueba elegida. Una suscripción activa impide contratar otro plan; para cambiar se cancela la anterior en Stripe. La app consulta Stripe al abrir Planes y después del pago para identificar el plan actual. La cancelación se realiza desde el panel de pruebas de Stripe.
+
+8. **Lugares útiles:** Acceso desde Perfil para todas las cuentas. El mapa Android muestra la posición actual si se autoriza, un catálogo local de Celaya y filtros de Reciclaje, Lavanderías y Tiendas de limpieza. Si falla la ubicación, conserva Celaya como referencia. Los marcadores y la lista muestran nombre/dirección; Ver Celaya y Mi ubicación controlan la cámara. No hay búsquedas automáticas de establecimientos. En web/iOS o sin clave configurada se conserva el catálogo con filtros.
 
 ## 5. Interfaz de Usuario (UI / UX) - "Casa en Juego"
 

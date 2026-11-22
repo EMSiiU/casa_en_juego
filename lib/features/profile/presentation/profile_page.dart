@@ -439,6 +439,17 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                     ? null
                     : () => context.pushNamed('cycleHistory'),
               ),
+              ListTile(
+                leading: Icon(
+                  Icons.map_outlined,
+                  color: context.appColors.primary,
+                ),
+                title: const Text('Lugares útiles'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: isSigningOut
+                    ? null
+                    : () => context.pushNamed('usefulPlaces'),
+              ),
               if (user.isHouseholdMember) ...[
                 SwitchListTile.adaptive(
                   secondary: Icon(
