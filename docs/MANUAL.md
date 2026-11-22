@@ -47,8 +47,8 @@ flowchart LR
 | Componente | Responsabilidad | Dónde estudiarlo |
 |---|---|---|
 | Flutter y Dart | Pantallas para Android, iOS y web. Los módulos se organizan por funcionalidad. | [lib/main.dart](../lib/main.dart), [pubspec.yaml](../pubspec.yaml) |
-| Stripe y flutter_stripe | PaymentSheet captura la tarjeta en Android y Stripe gestiona la suscripción de prueba. | [Guía de Stripe](stripe_test_setup.md), [family_payment_repository.dart](../lib/features/plans/repositories/family_payment_repository.dart) |
-| google_maps_flutter 2.19.0 y geolocator 14.1.2 | Mapa nativo Android, marcadores del catálogo de Celaya y lectura puntual de ubicación con permisos. | [Configuración del mapa](maps_setup.md), `lib/features/places/` |
+| Stripe y flutter_stripe | PaymentSheet captura la tarjeta en Android y Stripe gestiona la suscripción de prueba. | [Integración de Stripe](#servicios-pagos), [family_payment_repository.dart](../lib/features/plans/repositories/family_payment_repository.dart) |
+| google_maps_flutter 2.19.0 y geolocator 14.1.2 | Mapa nativo Android, marcadores del catálogo de Celaya y lectura puntual de ubicación con permisos. | [Funcionamiento del mapa](#servicios-mapa), `lib/features/places/` |
 | sensors_plus 7.1.1 | Lee aceleración sin gravedad en Android; los impulsos generan sugerencias locales de tareas. | `providers/shake_provider.dart`, `services/shake_detector.dart` del módulo Tareas |
 | Riverpod | Estado de formularios, sesión, consultas, acciones, reintentos e invalidación de datos. | Carpetas `providers/` de cada módulo y proveedores locales de los formularios |
 | go_router | Navegación, restauración de sesión y protección de páginas administrativas. | [app_router.dart](../lib/core/router/app_router.dart) |
@@ -61,13 +61,57 @@ flowchart LR
 `main()` inicializa Supabase, intenta inicializar Firebase para push móvil y
 monta `ProviderScope`. El resultado de la inicialización se inyecta con
 `pushRuntimeReadyProvider`. `CasaEnJuegoApp` combina el tema, el router y
-`NotificationHost`. La guía de push explica los pasos de despliegue.
+`NotificationHost`. El flujo de entrega de avisos se explica en la sección 5.
 
 En `lib/features/`, `presentation/` contiene las pantallas, `providers/`
 coordina el estado, `repositories/` encapsula el acceso a datos y `models/`
 describe los objetos que intercambian. En `core/` están el router, el tema, la
 configuración y el proveedor del cliente Supabase. Las pruebas pueden sustituir
 las interfaces de repositorio por implementaciones de prueba.
+
+<a id="publicacion-web"></a>
+
+### Publicación web y separación de servicios
+
+Flutter transforma el código Dart y los recursos declarados en `pubspec.yaml`
+en una aplicación web estática dentro de `build/web`. Firebase Hosting sirve
+esos archivos; no ejecuta el backend de negocio. `firebase.json` define ese
+directorio como contenido público y redirige rutas a `index.html`, para que
+`go_router` resuelva la navegación también al abrir un enlace directo.
+La cabecera `Cache-Control: no-cache` pide revalidar archivos al servidor,
+reduciendo el riesgo de conservar una interfaz anterior después de publicar.
+
+`.firebaserc` identifica `casaenjuego` como proyecto Firebase. El despliegue de
+Hosting publica una versión de la compilación local; no crea un commit ni
+modifica Supabase, sus migraciones, sus secretos, las Edge Functions o los
+permisos de Firebase Cloud Messaging. Un despliegue nuevo debe partir de una
+compilación nueva para que la interfaz publicada coincida con el código.
+Firebase mantiene versiones de Hosting que permiten consultar el historial y
+revertir la publicación sin cambiar el historial Git.
+
+```mermaid
+flowchart LR
+    Dart["Dart + recursos Flutter"] --> Build["Compilación web · build/web"]
+    Build --> Hosting["Firebase Hosting · archivos estáticos"]
+    Hosting --> Browser["Navegador · go_router + Riverpod"]
+    Browser --> Supabase["Supabase Auth y PostgreSQL / RLS"]
+    Android["APK Android"] --> FCM["Firebase Cloud Messaging"]
+    Android --> Native["Mapa, sensor y PaymentSheet nativos"]
+```
+
+La web usa Supabase para autenticación y datos con las mismas reglas del
+servidor. Su dominio debe estar autorizado en los retornos OAuth. El cliente
+solo contiene las claves públicas necesarias; los secretos de Stripe y de
+FCM permanecen en el servidor. Publicar una versión web no instala una nueva
+versión Android ni configura permisos nativos: en esta etapa el mapa, el gesto
+de agitar y la captura nativa de pagos se demuestran en Android. La web conserva
+el catálogo, las modalidades y los demás flujos compatibles.
+
+**Verificación del 22 de noviembre de 2026.** La compilación web de producción
+terminó correctamente y se publicó en [Firebase Hosting](https://casaenjuego.web.app).
+Se compararon mediante SHA-256 `index.html`, `main.dart.js` y
+`flutter_bootstrap.js`: los tres archivos remotos respondieron HTTP 200 y
+coincidieron con la compilación local. Esta versión incluye Planes desde Perfil.
 
 ## 3. Autenticación, rutas y perfil
 
@@ -704,6 +748,8 @@ no requiere nuevas tablas, secretos, migraciones ni despliegues de Supabase.
 
 Referencia: [sensors_plus](https://pub.dev/packages/sensors_plus).
 
+<a id="servicios-avisos"></a>
+
 ## 5. Avisos móviles
 
 1. `FirebasePushGateway` solicita permisos, registra un identificador de
@@ -742,9 +788,8 @@ iOS requiere APNs.
 
 Enlaces de estudio: [NotificationHost](../lib/features/notifications/presentation/notification_host.dart),
 [sesión de avisos](../lib/features/notifications/services/notification_session.dart),
-[Edge Function](../supabase/functions/send-task-notifications/handler.ts),
-[guía de push](push_notifications_setup.md)
-y [guía de recordatorios](inactivity_reminders_setup.md).
+[Edge Function](../supabase/functions/send-task-notifications/handler.ts) y
+[servicios de notificaciones](#servicios-avisos).
 
 ### Suscripción a Avisos generales
 
@@ -925,7 +970,7 @@ de las tarjetas.
 `PlansPage.build()` monta el encabezado compartido con `AccountMenu`, que
 muestra la foto o las iniciales de la cuenta y permite cerrar sesión,
 y la lista desplazable
-limitada a 600 píxeles lógicos y la barra inferior. `_PlanCard.build()`
+limitada a 600 píxeles lógicos y una flecha para volver a Perfil. `_PlanCard.build()`
 recibe nombre, precio, beneficios y etiqueta del botón y dibuja cada
 tarjeta con el tema activo. El plan leído desde Stripe muestra **Plan actual**.
 Si no hay una suscripción activa se marca Casa y Android habilita **Probar pago**
@@ -935,7 +980,7 @@ Los datos del catálogo son constantes y se renderizan desde el mismo archivo.
 
 ```mermaid
 flowchart LR
-    Cuenta["Cuenta autenticada"] --> Nav["AppNavigationBar · Planes"]
+    Cuenta["Cuenta autenticada"] --> Nav["Perfil → Planes"]
     Nav --> Ruta["go_router · /plans"]
     Ruta --> Vista["PlansPage"]
     Vista --> Casa["Casa · Gratis"]
@@ -944,9 +989,13 @@ flowchart LR
 ```
 
 `AppNavigationBar` conserva los índices de Tareas (0), Ranking (1),
-Revisiones (2) y Perfil (3), y añade Planes (4). Con ciclo activo muestra
-cinco destinos. Sin ciclo muestra Perfil y Planes, traduce esos dos
-destinos a los índices 3 y 4 y omite la consulta de pendientes de revisión.
+Revisiones (2) y Perfil (3). Con ciclo activo muestra cuatro destinos.
+Sin ciclo devuelve un widget vacío, evitando una NavigationBar con un único
+destino y omitiendo la consulta de pendientes de revisión. Planes se abre
+mediante `context.pushNamed('plans')` desde una ListTile de Perfil, justo
+debajo de Historial de ciclos y antes de Ver tutorial. Conserva `/plans` para
+enlaces directos; la flecha superior hace pop si hay historial o navega a
+Perfil si se abrió directamente. La pantalla Planes no tiene barra inferior.
 El router mantiene la comprobación de sesión para el acceso directo.
 
 El alcance acordado promociona los beneficios de pago y conserva una sola
@@ -1033,6 +1082,8 @@ verificar la recuperación en su proyecto tras desplegar `handler.ts`.
 Referencias: [idempotencia de Stripe](https://docs.stripe.com/api/idempotent_requests),
 [consulta de clientes eliminados](https://docs.stripe.com/api/customers/retrieve).
 
+<a id="servicios-pagos"></a>
+
 ### Pago nativo de Familia y Comunidad con Stripe
 
 `PlansPage` observa `familyPaymentProvider` y muestra los resultados como
@@ -1106,8 +1157,9 @@ handler valida explícitamente el JWT contra Supabase Auth.
 El primer pago se procesa en el sandbox y Stripe conserva la suscripción
 y sus facturas. La app consulta el plan en Stripe; el webhook
 y la cancelación desde Casa en Juego quedan para una etapa posterior.
-Los pasos de despliegue, secretos y tarjetas ficticias están en la
-[guía de configuración de Stripe](stripe_test_setup.md).
+La Edge Function obtiene las claves de prueba y los identificadores de precio
+del entorno del servidor. PaymentSheet recibe únicamente la clave publicable
+y el secreto de la factura concreta; la clave secreta de Stripe no llega al cliente.
 
 La verificación local de esta etapa completó el análisis Dart, 135 pruebas
 Flutter, la comprobación de tipos de Deno y cuatro pruebas del handler.
@@ -1138,7 +1190,7 @@ flujo tras eliminar al cliente de pruebas, con el handler actualizado.
 
 | Requisito | Estado en este repositorio |
 |---|---|
-| Problemática, objetivo y alcance | Parcial. Hay un [planteamiento](../planteamiento.md). Falta incluir evidencia del problema y el alcance acordado con el maestro. |
+| Problemática, objetivo y alcance | Parcial. El problema y el alcance se describen en la sección 1 de este manual. Falta incluir evidencia del problema y el alcance acordado con el maestro. |
 | Base de datos y sincronización | Supabase PostgreSQL aprobado por el maestro para datos y autenticación. Flutter vuelve a consultar después de las operaciones y en puntos de refresco de cada pantalla; los avisos privados también pueden invalidar consultas. La app carece de una suscripción general a Supabase Realtime. |
 | Almacenamiento y caché local de imágenes | Supabase Storage privado guarda la foto personal. Android e iOS conservan la copia por cuenta y la muestran al reabrir sin conexión cuando hay una sesión guardada. El uso de Supabase Storage se considera aceptado en la auditoría del proyecto. |
 | FCM desde consola, Topics y tres estados | Hay escuchador global y suscripción al Topic `avisos_generales`. El responsable reportó recepción desde Firebase Console. Falta registrar evidencia de los tres estados y de la baja del tema. |
@@ -1184,9 +1236,10 @@ dart analyze
   `test/notifications_test.dart` cubre preferencias, desvinculación y rutas
   de avisos. Estas pruebas usan repositorios o gateways de prueba.
 
-Para la publicación web, consultar [Firebase Hosting](firebase_hosting_setup.md).
-Para la activación real de avisos y las pruebas SQL y Deno, consultar las
-[instrucciones de push](push_notifications_setup.md).
+La [publicación web](#publicacion-web) entrega la compilación estática en
+Firebase Hosting. Los avisos y su worker se explican en la
+[arquitectura de notificaciones](#servicios-avisos); sus pruebas SQL y Deno
+se mantienen junto al código de Supabase.
 
 ## 10. Decisiones pendientes y mantenimiento
 
@@ -1196,8 +1249,9 @@ activa por cuenta. Quedan pendientes el enlace de invitación y la salida
 individual durante un ciclo activo.
 
 **Registro del 21 de noviembre de 2026.** Se incorporó Planes en la
-navegación inferior con las modalidades Casa, Familia y Comunidad. Las
-cuentas sin ciclo pueden alternar entre Perfil y Planes. Se acordó
+navegación inferior con las modalidades Casa, Familia y Comunidad. El 22
+de noviembre se trasladó su acceso a Perfil; sin ciclo la barra inferior
+se oculta y Planes sigue siendo accesible desde el perfil. Se acordó
 integrar Stripe en pruebas en una etapa posterior y presentar las
 ventajas de pago como propuesta.
 
@@ -1251,8 +1305,8 @@ también cuando el cliente llama directamente a la API.
 | `ios/Runner/` | `AppDelegate.swift` registra plugins, `SceneDelegate.swift` integra el ciclo de vida con Flutter, `Info.plist` declara la configuración de la app y `Runner-Bridging-Header.h` conecta el registrador con Swift. `Base.lproj/` define la pantalla de arranque y la vista principal. `Assets.xcassets/` incluye iconos y recursos de arranque con sus manifiestos. |
 | `ios/Runner.xcodeproj/`, `ios/Runner.xcworkspace/` y `ios/RunnerTests/` | Proyecto, esquema, configuración de Xcode y target de pruebas iOS. `RunnerTests.swift` contiene una prueba de ejemplo vacía. |
 | `web/` | `index.html` arranca Flutter; `manifest.json`, `favicon.png` e `icons/` configuran nombre e iconos en navegador e instalación. |
-| `docs/` | Manual técnico, manual de usuario y guías de [Hosting](firebase_hosting_setup.md), [push](push_notifications_setup.md) y [recordatorios](inactivity_reminders_setup.md). |
-| Raíz | `README.md` es la entrada al repositorio; `planteamiento.md` describe el problema. `pubspec.yaml` declara dependencias y recursos; `pubspec.lock` fija versiones. `analysis_options.yaml` activa las reglas de análisis. |
+| `docs/` | Se publican este manual técnico y el manual de usuario. Este manual explica los componentes, servicios y su relación con el código. |
+| Raíz | `README.md` es la entrada al repositorio; El problema y el alcance se desarrollan en la sección 1 de este manual. `pubspec.yaml` declara dependencias y recursos; `pubspec.lock` fija versiones. `analysis_options.yaml` activa las reglas de análisis. |
 | Configuración raíz y editor | `firebase.json` configura Hosting y `.firebaserc` el proyecto asociado. `.gitignore` y los archivos equivalentes de cada plataforma excluyen archivos locales. `.metadata` sirve a Flutter y `devtools_options.yaml` a DevTools. `.vscode/settings.json` delimita Deno a las funciones; `.vscode/extensions.json` recomienda extensiones. |
 
 ### 11.1 Arranque y componentes compartidos
@@ -1264,7 +1318,7 @@ también cuando el cliente llama directamente a la API.
 | `lib/core/constants/supabase_config.dart` | `SupabaseConfig` resuelve la URL y la clave publicable, con posibilidad de configurarlas al compilar. |
 | `lib/core/constants/task_log_status.dart` | `TaskLogStatus` centraliza los estados de solicitud que comparten Tareas, Revisiones y Actividad. |
 | `lib/core/router/app_router.dart` | El proveedor del router declara las rutas y sus redirecciones por sesión y rol. `refresh()` solicita reevaluar las redirecciones cuando cambia la sesión. |
-| `lib/core/router/app_navigation_bar.dart` | `AppNavigationBar` muestra cinco destinos con ciclo activo o Perfil y Planes sin ciclo. Actualiza el indicador de revisiones cuando hay membresía. |
+| `lib/core/router/app_navigation_bar.dart` | `AppNavigationBar` muestra cuatro destinos con ciclo activo y se oculta sin ciclo. Planes se consulta desde Perfil. Actualiza el indicador de revisiones cuando hay membresía. |
 | `lib/core/theme/app_theme.dart` | `AppTheme._build()` prepara colores, tipografía y componentes compartidos. `AppStatusColors.copyWith()` y `lerp()` integran los colores semánticos en las transiciones de tema. |
 | `lib/core/theme/app_page_bar.dart` | `AppPageBar.build()` fija las dimensiones, alineación y tipografía de la barra y coloca sus controles laterales. |
 | `lib/core/theme/theme_mode_provider.dart` | `build()` restaura la preferencia y `setDarkMode()` guarda el modo elegido. |
@@ -1475,45 +1529,7 @@ automatizado con `supabase db push`.
 | `supabase/functions/create-family-subscription/handler.ts` | `createHandler()` verifica Auth, entorno y precio. `stripe()` realiza peticiones autenticadas al proveedor y filtra errores. |
 | `supabase/functions/create-family-subscription/handler_test.ts` | Prueba sesiones, precio controlado en el servidor, repetición del intento y errores sin información privada. |
 
-## 12. Auditoría del código, la base y Git
-
-La auditoría del 16 de noviembre partió de una copia limpia con 239 archivos versionados. Se
-contrastaron las importaciones de los 89 archivos Dart de producción, los
-27 archivos de pruebas Flutter, las referencias de SQL y el inventario
-de Git. Los 89 archivos Dart de producción son alcanzables desde
-`lib/main.dart`. Eso confirma el uso de los archivos y deja abierta la
-posibilidad de que algún miembro de un archivo en uso sea redundante.
-
-| Hallazgo | Decisión de mantenimiento |
-|---|---|
-| `supabase/seed_test_season.sql` | Primer candidato a retirar. Ningún flujo de la app ni prueba depende de él. Cuando no existe un ciclo activo, el `INSERT` antiguo desde SQL Editor intenta crear uno sin el ámbito requerido. Administración ya cubre el caso mediante la RPC vigente. |
-| Ocho `.gitkeep` en `lib/` | Se pueden retirar. Siete están en carpetas con código y uno conserva la carpeta vacía `core/utils/`. |
-| `ActivityEntry.awardedPoints` | Solo lo invocan pruebas. La tarjeta usa `pointsSnapshot` según el estado. Si se retira, ajustar las pruebas que consultan el getter y conservar las que verifican el comportamiento visible de los puntos. |
-| `ActivityEntry.userId` | En producción se rellena al leer una fila y el historial no vuelve a usarlo. El repositorio ya filtra por usuario. El fake sí lo usa para filtrar sus datos. Simplificarlo implicaría ajustar también el fake y quitar la columna de la proyección, conservando el filtro por `user_id`. |
-| `create_first_cycle(text, integer)` | Flutter usa la firma con fecha. La variante con duración conserva compatibilidad y tiene cobertura SQL. Dejarla hasta comprobar qué versiones de la app siguen instaladas. Si se retira, hacerlo mediante una nueva migración. |
-| `private.cycle_groups`, `cycle_group_id`, `is_household_member` | Mecanismos vigentes de aislamiento y compatibilidad. Crear otro ciclo genera otro identificador. El cierre conserva participantes, puntos y catálogo archivados, y libera las membresías activas. Cambiar estos nombres o quitar el ámbito afectaría RLS, consultas y avisos. |
-| Funciones o políticas antiguas en migraciones | Algunas aparecen sustituidas o eliminadas por archivos posteriores, como el permiso de inserción directa en `seasons`. Conservar las migraciones y juzgar qué está vigente a partir del esquema final. |
-| SQL, configuración y pruebas operativas | Conservar `phase_2.sql`, migraciones, los dos `enable_*.sql`, configuración, Edge Function y pruebas. Cada pieza participa en reconstrucción, despliegue o verificación, aunque Flutter no lea esos archivos al ejecutarse. |
-| Recursos nativos y web | Conservar mientras se mantenga el destino correspondiente. Xcode, Gradle y el navegador consumen esos archivos fuera del grafo Dart. `RunnerTests.swift` trae una prueba vacía pero pertenece al target Xcode. |
-| Archivos de conveniencia | `.vscode/`, `devtools_options.yaml` y las instrucciones generadas de `ios/Runner/Assets.xcassets/LaunchImage.imageset/README.md` pueden revisarse por separado. Hosting usa `.firebaserc` y `firebase.json` cuando se publica web. |
-| Secretos y generados | Git ignora salidas de compilación, dependencias locales y archivos sensibles cubiertos por las reglas del proyecto. `android/app/google-services.json` es configuración del cliente Android. Las credenciales de la cuenta de servicio de FCM y el secreto de invocación del trabajador se configuran fuera del repositorio. |
-
-Verificación local de esta revisión: análisis Dart sin hallazgos, 122
-pruebas Flutter, dos suites SQL con PGlite y diez casos del handler con
-un adaptador de pruebas en Node. Esta última ejecución verifica la lógica
-del trabajador y su cliente FCM con dobles; la puesta en marcha con Deno y
-la entrega remota se comprueban por separado.
-
-La consulta del catálogo local confirmó once políticas, nueve triggers y
-las funciones de `private` y `public` instaladas por el esquema y las
-migraciones. El trigger de activación de la entrega y los dos trabajos Cron
-pertenecen a los scripts operativos y quedan fuera de esa cuenta. El panel
-remoto, sus objetos manuales, secretos y trabajos programados requieren
-acceso al proyecto desplegado. Las confirmaciones de uso de
-Android y del proyecto remoto proceden de las pruebas del responsable del
-proyecto. El inventario de esta revisión permite una limpieza pequeña
-sin reestructurar la aplicación ni eliminar su historial.
-
+<a id="servicios-mapa"></a>
 
 ### 11.12 Lugares útiles
 
@@ -1526,7 +1542,7 @@ acceso Lugares útiles con el mismo patrón de sus otros accesos.
 | Archivo | Funciones y responsabilidad |
 |---|---|
 | `models/useful_place.dart` | `UsefulPlace` contiene id, nombre, dirección, categoría y posición. `PlaceCategory` define los tres filtros con etiquetas en español. |
-| `data/celaya_places.dart` | `celayaCenter` es el centro de referencia. `celayaPlaces` contiene siete registros constantes: un reciclaje, tres lavanderías y tres tiendas de limpieza, sin llamadas de búsqueda ni escrituras. Fuentes en la guía de mapas. |
+| `data/celaya_places.dart` | `celayaCenter` es el centro de referencia. `celayaPlaces` contiene siete registros constantes: un reciclaje, tres lavanderías y tres tiendas de limpieza, sin llamadas de búsqueda ni escrituras. El catálogo y su revisión cartográfica se explican en esta sección. |
 | `providers/places_providers.dart` | `nativeMapEnabledProvider` exige Android y clave de compilación. `placesCatalogProvider` expone el catálogo. `PlaceCategoryController.select()` cambia el filtro; `filteredPlacesProvider` calcula la lista visible. `deviceLocationProvider` solicita una ubicación y no reintenta automáticamente. |
 | `services/device_location.dart` | `DeviceLocation.currentPosition()` comprueba servicio, permisos y obtiene la posición con un límite de 15 s. `LocationFailure` distingue servicio apagado, denegación temporal/permanente y fallo recuperable. `openSettings()` abre ajustes del servicio o de la app según el caso. |
 | `presentation/useful_places_page.dart` | `UsefulPlacesPage` muestra filtros, mapa acotado, estado de ubicación y lista. `_moveTo()` centra la cámara; `_openSettings()` maneja el fallo al abrir ajustes. El registro local `_controller` es una referencia imperativa al mapa, sin `setState` ni `ValueNotifier`. |
@@ -1576,8 +1592,8 @@ Dart comprueba la misma variable antes de construir GoogleMap, evitando abrir
 una vista sin clave. El JSON está ignorado por Git y no se crea con una clave
 copiada de otro proyecto. La restricción en Google Cloud requiere el paquete
 `com.example.casa_en_juego`, su SHA-1 de firma y Maps SDK for Android. No hace
-falta Places API ni una nueva Edge Function. La guía [maps_setup.md](maps_setup.md)
-incluye la configuración, comandos, fuentes del catálogo y prueba en el RMX3840.
+falta Places API ni una nueva Edge Function. Las restricciones vinculan la clave con la aplicación firmada; la clave
+cliente del SDK puede pertenecer a un proyecto Cloud distinto de Firebase Hosting.
 
 Web e iOS conservan catálogo y filtros. No se configura allí una clave, SDK de
 mapa ni permisos de ubicación en esta etapa. La compilación del APK no acredita
@@ -1609,7 +1625,7 @@ análisis Dart sin hallazgos y compilaciones Android/web completadas con las
 dependencias nuevas. Después de recompilar e instalar con la clave, el responsable confirmó que
 el mapa aparece en el RMX3840. Esa prueba acredita la carga del mapa y la
 autorización de la clave; la exactitud de la posición y de cada establecimiento
-se comprueba con los pasos de la guía.
+se comprueba comparando la posición y los marcadores en el teléfono.
 
 
 **Revisión cartográfica del catálogo, 21 de noviembre de 2026.** Se amplió de
@@ -1621,8 +1637,9 @@ estatal y al punto registral de esa dirección; el pin anterior quedaba unos
 punto registral anterior) y se retiró Vengala 4003 al no corroborar su posición.
 Las sucursales de Don Pulcro usan las coordenadas del localizador oficial,
 contrastadas con sus fichas Waze. Las lavanderías adicionales tienen puntos
-coincidentes en las fichas consultadas. La tabla de fuentes y diferencias queda
-en [maps_setup.md](maps_setup.md). La revisión verifica coherencia entre fuentes
+coincidentes en las fichas consultadas. Las fuentes utilizadas fueron el padrón estatal de manejo de residuos,
+registros comerciales y el localizador oficial de Don Pulcro, contrastado
+con Waze. La revisión verifica coherencia entre fuentes
 públicas; no acredita una visita física ni precisión al metro.
 
 Solo cambia `data/celaya_places.dart`: los providers, filtros, marcadores y
@@ -1722,3 +1739,62 @@ con ambos temas. No se añadieron dependencias, migraciones, secretos ni marcas
 persistentes para esta funcionalidad.
 El APK Android también compiló y se instaló en el RMX3840 con la configuración
 local del mapa. Queda pendiente la validación visual del tutorial en ese equipo.
+
+
+**Ajuste de navegación del 22 de noviembre de 2026.** Planes se retiró de la
+barra inferior y se agregó como acceso de Perfil, inmediatamente después de
+Historial de ciclos y antes de Ver tutorial. Lugares útiles conserva su lugar
+relativo respecto a los accesos anteriores. `PlansPage` usa el encabezado
+compartido, menú de cuenta y botón Volver a Perfil; ya no asigna el antiguo
+índice 4 a una barra de navegación. `AppNavigationBar` conserva únicamente
+los índices 0–3 y retorna `SizedBox.shrink()` para cuentas sin membresía,
+porque Material NavigationBar requiere al menos dos destinos. No se modifican
+la ruta protegida, los precios ni la integración de pagos.
+
+Las pruebas de Planes recorren el nuevo acceso con y sin ciclo y el retorno
+mediante la flecha, además de las tarjetas en ambos temas y anchos. La prueba
+de registro confirma que una cuenta nueva puede permanecer en Perfil sin
+barra inferior. El acceso vigente es Perfil → Planes.
+
+La verificación de este ajuste aprobó las 32 pruebas de Planes, Perfil y
+Autenticación, y el análisis Dart terminó sin hallazgos. Se verificaron el
+acceso con y sin membresía y el regreso desde Planes a Perfil.
+
+## 12. Auditoría del código, la base y Git
+
+La auditoría del 16 de noviembre partió de una copia limpia con 239 archivos versionados. Se
+contrastaron las importaciones de los 89 archivos Dart de producción, los
+27 archivos de pruebas Flutter, las referencias de SQL y el inventario
+de Git. Los 89 archivos Dart de producción son alcanzables desde
+`lib/main.dart`. Eso confirma el uso de los archivos y deja abierta la
+posibilidad de que algún miembro de un archivo en uso sea redundante.
+
+| Hallazgo | Decisión de mantenimiento |
+|---|---|
+| `supabase/seed_test_season.sql` | Primer candidato a retirar. Ningún flujo de la app ni prueba depende de él. Cuando no existe un ciclo activo, el `INSERT` antiguo desde SQL Editor intenta crear uno sin el ámbito requerido. Administración ya cubre el caso mediante la RPC vigente. |
+| Ocho `.gitkeep` en `lib/` | Se pueden retirar. Siete están en carpetas con código y uno conserva la carpeta vacía `core/utils/`. |
+| `ActivityEntry.awardedPoints` | Solo lo invocan pruebas. La tarjeta usa `pointsSnapshot` según el estado. Si se retira, ajustar las pruebas que consultan el getter y conservar las que verifican el comportamiento visible de los puntos. |
+| `ActivityEntry.userId` | En producción se rellena al leer una fila y el historial no vuelve a usarlo. El repositorio ya filtra por usuario. El fake sí lo usa para filtrar sus datos. Simplificarlo implicaría ajustar también el fake y quitar la columna de la proyección, conservando el filtro por `user_id`. |
+| `create_first_cycle(text, integer)` | Flutter usa la firma con fecha. La variante con duración conserva compatibilidad y tiene cobertura SQL. Dejarla hasta comprobar qué versiones de la app siguen instaladas. Si se retira, hacerlo mediante una nueva migración. |
+| `private.cycle_groups`, `cycle_group_id`, `is_household_member` | Mecanismos vigentes de aislamiento y compatibilidad. Crear otro ciclo genera otro identificador. El cierre conserva participantes, puntos y catálogo archivados, y libera las membresías activas. Cambiar estos nombres o quitar el ámbito afectaría RLS, consultas y avisos. |
+| Funciones o políticas antiguas en migraciones | Algunas aparecen sustituidas o eliminadas por archivos posteriores, como el permiso de inserción directa en `seasons`. Conservar las migraciones y juzgar qué está vigente a partir del esquema final. |
+| SQL, configuración y pruebas operativas | Conservar `phase_2.sql`, migraciones, los dos `enable_*.sql`, configuración, Edge Function y pruebas. Cada pieza participa en reconstrucción, despliegue o verificación, aunque Flutter no lea esos archivos al ejecutarse. |
+| Recursos nativos y web | Conservar mientras se mantenga el destino correspondiente. Xcode, Gradle y el navegador consumen esos archivos fuera del grafo Dart. `RunnerTests.swift` trae una prueba vacía pero pertenece al target Xcode. |
+| Archivos de conveniencia | `.vscode/`, `devtools_options.yaml` y las instrucciones generadas de `ios/Runner/Assets.xcassets/LaunchImage.imageset/README.md` pueden revisarse por separado. Hosting usa `.firebaserc` y `firebase.json` cuando se publica web. |
+| Secretos y generados | Git ignora salidas de compilación, dependencias locales y archivos sensibles cubiertos por las reglas del proyecto. `android/app/google-services.json` es configuración del cliente Android. Las credenciales de la cuenta de servicio de FCM y el secreto de invocación del trabajador se configuran fuera del repositorio. |
+
+Verificación local de esta revisión: análisis Dart sin hallazgos, 122
+pruebas Flutter, dos suites SQL con PGlite y diez casos del handler con
+un adaptador de pruebas en Node. Esta última ejecución verifica la lógica
+del trabajador y su cliente FCM con dobles; la puesta en marcha con Deno y
+la entrega remota se comprueban por separado.
+
+La consulta del catálogo local confirmó once políticas, nueve triggers y
+las funciones de `private` y `public` instaladas por el esquema y las
+migraciones. El trigger de activación de la entrega y los dos trabajos Cron
+pertenecen a los scripts operativos y quedan fuera de esa cuenta. El panel
+remoto, sus objetos manuales, secretos y trabajos programados requieren
+acceso al proyecto desplegado. Las confirmaciones de uso de
+Android y del proyecto remoto proceden de las pruebas del responsable del
+proyecto. El inventario de esta revisión permite una limpieza pequeña
+sin reestructurar la aplicación ni eliminar su historial.

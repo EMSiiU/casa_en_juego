@@ -81,25 +81,33 @@ void main() {
       final container = ProviderScope.containerOf(
         tester.element(find.byType(CasaEnJuegoApp)),
       );
-      expect(
-        tester
-            .widget<NavigationBar>(find.byType(NavigationBar))
-            .destinations
-            .length,
-        hasCycle ? 5 : 2,
+      if (hasCycle) {
+        expect(
+          tester
+              .widget<NavigationBar>(find.byType(NavigationBar))
+              .destinations
+              .length,
+          4,
+        );
+        expect(
+          find.widgetWithText(NavigationDestination, 'Planes'),
+          findsNothing,
+        );
+        await tester.tap(find.widgetWithText(NavigationDestination, 'Perfil'));
+        await tester.pumpAndSettle();
+      } else {
+        expect(find.byType(NavigationBar), findsNothing);
+      }
+      await tester.scrollUntilVisible(
+        find.widgetWithText(ListTile, 'Planes'),
+        150,
+        scrollable: find.byType(Scrollable).first,
       );
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Planes'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ListTile, 'Planes'));
       await tester.pumpAndSettle();
       expect(find.byType(PlansPage), findsOneWidget);
-      expect(
-        container
-            .read(appRouterProvider)
-            .routeInformationProvider
-            .value
-            .uri
-            .path,
-        '/plans',
-      );
+      expect(find.byType(NavigationBar), findsNothing);
 
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -124,7 +132,7 @@ void main() {
         expect(tester.takeException(), isNull);
       }
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Perfil'));
+      await tester.tap(find.byTooltip('Volver a Perfil'));
       await tester.pumpAndSettle();
       expect(
         container

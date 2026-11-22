@@ -60,5 +60,8 @@ maps.local.json
 /android/build/
 firebase-debug.log*
 
-# Informe local de revisión; no forma parte de la entrega.
-/docs/auditoria_requerimientos_2026-11-21.txt
+# Documentación local: publicar únicamente los dos manuales.
+/planteamiento.md
+/docs/*
+!/docs/MANUAL.md
+!/docs/manual de usuario.md

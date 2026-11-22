@@ -68,7 +68,7 @@ La fecha prevista sirve para organizarse. Para finalizar el ciclo, el administra
 | **Revisiones** | Aprobar o rechazar las tareas que enviaron otras personas del ciclo. |
 | **Ranking** | Ver la clasificación y los puntos aprobados del ciclo activo. |
 | **Perfil** | Personalizar tu cuenta, consultar tu actividad y revisar ciclos cerrados. |
-| **Planes** | Consultar las modalidades Casa, Familia y Comunidad. |
+| **Perfil → Planes** | Consultar las modalidades Casa, Familia y Comunidad. |
 
 ### Registrar una tarea
 
@@ -155,8 +155,9 @@ El mapa necesita internet y debe estar configurado por quien administra la app.
 
 ## 6. Consulta los planes
 
-Pulsa **Planes**, a la derecha de **Perfil** en la barra inferior. Si
-todavía no participas en un ciclo, puedes alternar entre esas dos pantallas.
+Entra a **Perfil → Planes**, debajo de **Historial de ciclos** y antes de
+**Ver tutorial**. Puedes consultarlos con o sin ciclo activo. Usa la flecha
+superior para volver a Perfil.
 
 | Modalidad | Precio anunciado | Incluye |
 | --- | --- | --- |

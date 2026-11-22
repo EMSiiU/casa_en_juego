@@ -2,7 +2,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../models/useful_place.dart';
 
-// Fuentes y fecha de consulta en docs/maps_setup.md. Catálogo manual, sin Places API.
+// Fuentes y fecha de consulta en docs/MANUAL.md, sección de lugares útiles. Catálogo manual, sin Places API.
 const celayaCenter = LatLng(20.5289, -100.8150);
 const celayaPlaces = [
   UsefulPlace(

@@ -10,7 +10,7 @@ En Android, agitar el celular en Tareas sugiere una tarea disponible mediante
 el acelerómetro; el registro sigue siendo manual. Perfil incluye Lugares útiles
 con un catálogo fijo de Celaya; el mapa Android requiere configurar su clave.
 
-La pantalla **Planes** presenta Casa gratis, Familia a $39 MXN al mes y
+Desde **Perfil → Planes** puedes consultar Casa gratis, Familia a $39 MXN al mes y
 Comunidad a $69 MXN al mes. Los planes de pago anuncian beneficios de
 demostración. Familia y Comunidad permiten abrir el pago nativo de prueba en Android
 después de desplegar la función de Supabase y configurar Stripe.
@@ -22,13 +22,16 @@ flutter pub get
 flutter run
 ```
 
+## Deploy
+Se implementó un deploy usando el servicio de Hosting de Firebase.
+[Visitar Casa en Juego](https://casaenjuego.web.app)
+
+
 ## Documentación
 
-- [Planteamiento y alcance](planteamiento.md).
 - [Manual de usuario](docs/manual%20de%20usuario.md).
-- [Manual técnico, arquitectura y pruebas](docs/MANUAL.md).
-- [Mapa Android y catálogo de lugares útiles](docs/maps_setup.md).
-- [Publicación web en Firebase Hosting](docs/firebase_hosting_setup.md).
-- [Configuración de avisos móviles](docs/push_notifications_setup.md).
-- [Activación de recordatorios](docs/inactivity_reminders_setup.md).
-- [Configuración y prueba de suscripciones con Stripe](docs/stripe_test_setup.md).
+- [Manual técnico, arquitectura, configuración y publicación](docs/MANUAL.md).
+
+Para habilitar el mapa Android, consulta la [integración del mapa](docs/MANUAL.md#servicios-mapa).
+El manual técnico explica Stripe, notificaciones, recordatorios, Firebase
+Hosting y la relación de estos servicios con el código.

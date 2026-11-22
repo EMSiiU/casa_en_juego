@@ -484,6 +484,15 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               ),
               ListTile(
                 leading: Icon(
+                  Icons.workspace_premium_outlined,
+                  color: context.appColors.primary,
+                ),
+                title: const Text('Planes'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: isSigningOut ? null : () => context.pushNamed('plans'),
+              ),
+              ListTile(
+                leading: Icon(
                   Icons.map_outlined,
                   color: context.appColors.primary,
                 ),

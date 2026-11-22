@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../../core/router/app_navigation_bar.dart';
 import '../../../core/theme/app_page_bar.dart';
 import '../../auth/presentation/widgets/account_menu.dart';
 import '../providers/family_payment_provider.dart';
@@ -44,7 +44,16 @@ class PlansPage extends ConsumerWidget {
       }
     });
     return Scaffold(
-      appBar: const AppPageBar(title: 'Planes', trailing: AccountMenu()),
+      appBar: AppPageBar(
+        title: 'Planes',
+        leading: IconButton(
+          tooltip: 'Volver a Perfil',
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.goNamed('profile'),
+        ),
+        trailing: const AccountMenu(),
+      ),
       body: SafeArea(
         top: false,
         child: Center(
@@ -142,7 +151,6 @@ class PlansPage extends ConsumerWidget {
           ),
         ),
       ),
-      bottomNavigationBar: const AppNavigationBar(selectedIndex: 4),
     );
   }
 }
